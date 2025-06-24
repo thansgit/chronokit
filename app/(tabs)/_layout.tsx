@@ -19,10 +19,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Player",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "home-sharp" : "home-outline"}
+              name={
+                focused
+                  ? "caret-forward-circle"
+                  : "caret-forward-circle-outline"
+              }
               color={color}
               size={24}
             />
@@ -30,14 +34,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="about"
+        name="builder"
         options={{
-          title: "About",
+          title: "Builder",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={
-                focused ? "information-circle" : "information-circle-outline"
-              }
+              name={focused ? "cog" : "cog-outline"}
               color={color}
               size={24}
             />
