@@ -1,10 +1,12 @@
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function BuilderScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Builder screen</Text>
-    </View>
+    <ScrollView>
+      <View style={styles.container}>
+        <Text style={styles.text}>Builder screen</Text>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -14,6 +16,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#25292e",
     justifyContent: "center",
     alignItems: "center",
+    minHeight: "100%",
   },
   text: {
     color: "#fff",
