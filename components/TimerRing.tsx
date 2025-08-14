@@ -49,15 +49,15 @@ export default function TimerRing({
     animatedValue.addListener((v) => {
       if (circleRef?.current) {
         const maxPercentage = (100 * v.value) / max;
-        const strokeDashoffset =
-          circleCircumference - (circleCircumference * maxPercentage) / 100;
+        const strokeDashoffset = (circleCircumference * maxPercentage) / 100;
         (circleRef.current as any).setNativeProps({
           strokeDashoffset,
         });
       }
       if (inputRef?.current) {
+        const remainingValue = Math.round(max - v.value);
         (inputRef.current as any).setNativeProps({
-          text: `${Math.round(v.value)} / ${max}`,
+          text: `${remainingValue}`,
         });
       }
     });
@@ -93,7 +93,7 @@ export default function TimerRing({
             r={radius}
             fill="transparent"
             strokeDasharray={circleCircumference}
-            strokeDashoffset={circleCircumference}
+            strokeDashoffset={0}
             strokeLinecap="round"
           />
         </G>
