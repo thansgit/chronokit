@@ -1,11 +1,8 @@
 import { memo } from "react";
-import { Animated, StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
 interface TimerRingProps {
-  progress: Animated.Value; // Animation progress value
   totalDuration: number; // Total duration in seconds
   currentValue: number; // Current timer value to display
   radius?: number;
@@ -17,29 +14,22 @@ interface TimerRingProps {
 
 // Use React.memo to prevent unnecessary re-renders
 const TimerRing = memo(function TimerRing({
-  progress,
   totalDuration,
   currentValue,
-  radius = 80,
-  strokeWidth = 20,
+  radius = 140,
+  strokeWidth = 10,
   textColor = "white",
   ringColor = "green",
   backgroundColor = "lightgreen",
 }: TimerRingProps) {
+  console.log("TimerRing rendered");
+
   const halfCircle = radius + strokeWidth;
   const circleCircumference = 2 * Math.PI * radius;
-
-
-
-  // Map the progress value to strokeDashoffset
-  // As progress increases from 0 to totalDuration,
-  // strokeDashoffset should increase from 0 to circleCircumference
-  const strokeDashoffset = progress.interpolate({
-    inputRange: [0, totalDuration],
-    outputRange: [0, circleCircumference],
-    extrapolate: "clamp",
-  });
-
+  // currentValue is remaining seconds; compute elapsed fraction
+  const safeTotal = Math.max(1, totalDuration);
+  const elapsed = Math.max(0, Math.min(safeTotal, safeTotal - currentValue));
+  const strokeDashoffset = (elapsed / safeTotal) * circleCircumference;
 
   return (
     <View>
@@ -58,7 +48,7 @@ const TimerRing = memo(function TimerRing({
             fill="transparent"
             strokeOpacity={0.2}
           />
-          <AnimatedCircle
+          <Circle
             cx={"50%"}
             cy={"50%"}
             stroke={ringColor}

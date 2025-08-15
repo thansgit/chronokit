@@ -2,51 +2,71 @@ import { mockSession } from "@/assets/data/mock";
 import { PlayPauseButton } from "@/components/PlayPauseButton";
 import TimerRing from "@/components/TimerRing";
 import { useSessionStore } from "@/stores/useSessionStore";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function PlayerScreen() {
   // Use selector pattern to minimize re-renders
   const session = useSessionStore((state) => state.session);
-  const animatedValue = useSessionStore((state) => state.animatedValue);
-  const remainingTime = useSessionStore((state) => state.remainingTime);
+  const isRunning = useSessionStore((state) => state.isRunning);
+  const startAt = useSessionStore((state) => state.startAt);
+  const elapsedOffsetMs = useSessionStore((state) => state.elapsedOffsetMs);
   const setSession = useSessionStore((state) => state.setSession);
   const startTimer = useSessionStore((state) => state.startTimer);
+  const stopTimer = useSessionStore((state) => state.stopTimer);
+  const resetTimer = useSessionStore((state) => state.resetTimer);
 
-  // Initialize session only once
+  // Initialize session
   useEffect(() => {
     setSession(mockSession);
-
-    // Add a small delay before starting the timer to ensure setSession completes
-    const timer = setTimeout(() => {
-      startTimer();
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-    };
   }, []);
 
-  // Memoize the TimerRing component to prevent unnecessary re-renders
-  const timerRingComponent = useMemo(() => {
-    return (
-      mockSession && (
-        <TimerRing
-          progress={animatedValue}
-          totalDuration={mockSession.totalDuration}
-          currentValue={remainingTime}
-          ringColor="green"
-          backgroundColor="lightgreen"
-        />
-      )
-    );
-  }, [animatedValue, remainingTime]);
+  // lightweight ticker for display while running
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [isRunning]);
+
+  // compute remaining seconds from timestamps
+  const remainingSec = useMemo(() => {
+    const totalSec = session?.totalDuration ?? 0;
+    const totalMs = totalSec * 1000;
+    const runtimeMs = isRunning && startAt ? Date.now() - startAt : 0;
+    const elapsedMs = elapsedOffsetMs + runtimeMs;
+    const remMs = Math.max(0, totalMs - elapsedMs);
+    return Math.round(remMs / 1000);
+    // depend on now to refresh while running
+  }, [session?.totalDuration, isRunning, startAt, elapsedOffsetMs, now]);
+
+  // auto-reset when we reach the end so the starting value shows
+  useEffect(() => {
+    if (!session) return;
+    if (isRunning && remainingSec <= 0) {
+      resetTimer();
+    }
+  }, [session, isRunning, remainingSec, resetTimer]);
 
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Player screen</Text>
-      {timerRingComponent}
-      <PlayPauseButton isPlaying={false} onToggle={() => {}} />
+      <TimerRing
+        totalDuration={session!.totalDuration}
+        currentValue={remainingSec}
+        ringColor="green"
+        backgroundColor="lightgreen"
+      />
+      <PlayPauseButton
+        isPlaying={isRunning}
+        onToggle={() => {
+          if (isRunning) {
+            stopTimer();
+          } else {
+            startTimer();
+          }
+        }}
+      />
     </View>
   );
 }

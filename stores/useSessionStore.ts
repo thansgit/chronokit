@@ -1,13 +1,12 @@
-import { Animated } from "react-native";
 import { create } from "zustand";
 import { Session } from "../assets/data/mock";
 
 interface SessionState {
   // State
   session: Session | null;
-  animatedValue: Animated.Value;
-  remainingTime: number;
   isRunning: boolean;
+  startAt: number | null; // ms timestamp when started
+  elapsedOffsetMs: number; // accumulated elapsed across pauses
 
   // Actions
   setSession: (session: Session) => void;
@@ -19,69 +18,45 @@ interface SessionState {
 export const useSessionStore = create<SessionState>((set, get) => ({
   // Initial state
   session: null,
-  animatedValue: new Animated.Value(0),
-  remainingTime: 0,
   isRunning: false,
+  startAt: null,
+  elapsedOffsetMs: 0,
 
   // Actions
   setSession: (session) => {
-    const { animatedValue } = get();
-
-    // Reset animation value
-    animatedValue.setValue(0);
-
-    // Set up listener for remaining time updates
-    // First remove any existing listeners to prevent duplicates
-    animatedValue.removeAllListeners();
-
-    // Add new listener
-    const listenerId = animatedValue.addListener((v) => {
-      set({ remainingTime: Math.round(session.totalDuration - v.value) });
-    });
-
     set({
       session,
-      remainingTime: session.totalDuration,
       isRunning: false,
+      startAt: null,
+      elapsedOffsetMs: 0,
     });
   },
 
   startTimer: () => {
-    const { session, animatedValue, isRunning } = get();
-
-    if (!session || isRunning) {
-      return;
-    }
-
-    // Stop any existing animation first
-    animatedValue.stopAnimation();
-
-    // Reset animation value to 0 before starting
-    animatedValue.setValue(0);
-
-    Animated.timing(animatedValue, {
-      toValue: session.totalDuration,
-      duration: session.totalDuration * 1000,
-      useNativeDriver: true,
-    }).start();
-
-    set({ isRunning: true });
+    const { session, isRunning, startAt } = get();
+    if (!session || isRunning) return;
+    set({ isRunning: true, startAt: Date.now() });
   },
 
   stopTimer: () => {
-    const { animatedValue } = get();
-    animatedValue.stopAnimation();
-    set({ isRunning: false });
+    const { isRunning, startAt, elapsedOffsetMs } = get();
+    if (!isRunning || startAt == null) {
+      set({ isRunning: false, startAt: null });
+      return;
+    }
+    const delta = Date.now() - startAt;
+    set({
+      isRunning: false,
+      startAt: null,
+      elapsedOffsetMs: elapsedOffsetMs + delta,
+    });
   },
 
   resetTimer: () => {
-    const { session, animatedValue } = get();
-    if (!session) return;
-
-    animatedValue.setValue(0);
     set({
-      remainingTime: session.totalDuration,
       isRunning: false,
+      startAt: null,
+      elapsedOffsetMs: 0,
     });
   },
 }));
