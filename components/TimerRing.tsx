@@ -1,71 +1,45 @@
-import { useEffect, useRef } from "react";
+import { memo } from "react";
 import { Animated, StyleSheet, TextInput, View } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedInput = Animated.createAnimatedComponent(TextInput);
 
 interface TimerRingProps {
-  percentage?: number;
+  progress: Animated.Value; // Animation progress value
+  totalDuration: number; // Total duration in seconds
+  currentValue: number; // Current timer value to display
   radius?: number;
   strokeWidth?: number;
-  duration?: number;
-  color?: string;
-  delay?: number;
   textColor?: string;
-  max?: number;
+  ringColor?: string;
+  backgroundColor?: string;
 }
 
-export default function TimerRing({
-  percentage = 99,
+// Use React.memo to prevent unnecessary re-renders
+const TimerRing = memo(function TimerRing({
+  progress,
+  totalDuration,
+  currentValue,
   radius = 80,
   strokeWidth = 20,
-  duration = 500,
-  color = "red",
-  delay = 500,
   textColor = "white",
-  max = 100,
+  ringColor = "green",
+  backgroundColor = "lightgreen",
 }: TimerRingProps) {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const circleRef = useRef<React.ComponentRef<typeof AnimatedCircle>>(null);
-  const inputRef = useRef<React.ComponentRef<typeof AnimatedInput>>(null);
   const halfCircle = radius + strokeWidth;
   const circleCircumference = 2 * Math.PI * radius;
 
-  const animation = (toValue: number) => {
-    return Animated.timing(animatedValue, {
-      toValue,
-      duration,
-      delay,
-      useNativeDriver: true,
-    }).start(() => {
-      animation(toValue === 0 ? percentage : 0);
-    });
-  };
 
-  useEffect(() => {
-    animation(percentage);
 
-    animatedValue.addListener((v) => {
-      if (circleRef?.current) {
-        const maxPercentage = (100 * v.value) / max;
-        const strokeDashoffset = (circleCircumference * maxPercentage) / 100;
-        (circleRef.current as any).setNativeProps({
-          strokeDashoffset,
-        });
-      }
-      if (inputRef?.current) {
-        const remainingValue = Math.round(max - v.value);
-        (inputRef.current as any).setNativeProps({
-          text: `${remainingValue}`,
-        });
-      }
-    });
+  // Map the progress value to strokeDashoffset
+  // As progress increases from 0 to totalDuration,
+  // strokeDashoffset should increase from 0 to circleCircumference
+  const strokeDashoffset = progress.interpolate({
+    inputRange: [0, totalDuration],
+    outputRange: [0, circleCircumference],
+    extrapolate: "clamp",
+  });
 
-    return () => {
-      animatedValue.removeAllListeners();
-    };
-  }, [max, percentage]);
 
   return (
     <View>
@@ -78,35 +52,33 @@ export default function TimerRing({
           <Circle
             cx={"50%"}
             cy={"50%"}
-            stroke={color}
+            stroke={backgroundColor}
             strokeWidth={strokeWidth}
             r={radius}
             fill="transparent"
             strokeOpacity={0.2}
           />
           <AnimatedCircle
-            ref={circleRef}
             cx={"50%"}
             cy={"50%"}
-            stroke={color}
+            stroke={ringColor}
             strokeWidth={strokeWidth}
             r={radius}
             fill="transparent"
             strokeDasharray={circleCircumference}
-            strokeDashoffset={0}
+            strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
           />
         </G>
       </Svg>
-      <AnimatedInput
-        ref={inputRef}
+      <TextInput
         underlineColorAndroid="transparent"
         editable={false}
-        defaultValue="0"
+        value={`${currentValue}`}
         style={[
           StyleSheet.absoluteFillObject,
           {
-            color: textColor ?? color,
+            color: textColor,
             fontSize: radius / 3,
             fontWeight: "bold",
             textAlign: "center",
@@ -115,4 +87,6 @@ export default function TimerRing({
       />
     </View>
   );
-}
+});
+
+export default TimerRing;
