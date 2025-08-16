@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
 import { Cue } from "../assets/data/mock";
+import { ResetButton } from "./ResetButton";
 
 interface TimerRingProps {
   totalDuration: number; // Total duration in seconds
@@ -15,6 +16,7 @@ interface TimerRingProps {
   dashWidth?: number; // Width of each dash
   gradientColors?: string[]; // Colors for gradient
   cues?: Cue[]; // Optional cues for coloring segments
+  onReset?: () => void; // Reset callback function
 }
 
 // Use React.memo to prevent unnecessary re-renders
@@ -29,7 +31,8 @@ const TimerRing = memo(function TimerRing({
   dashCount = 10,
   dashWidth = 3,
   gradientColors = ["#8A2BE2", "#4169E1"], // Purple to blue gradient
-  cues = []
+  cues = [],
+  onReset
 }: TimerRingProps) {
   console.log("TimerRing rendered");
 
@@ -155,17 +158,24 @@ const TimerRing = memo(function TimerRing({
           </G>
         ))}
       </Svg>
-      <Text
-        style={[
-          styles.timerText,
-          {
-            color: textColor,
-            fontSize: radius / 2,
-          },
-        ]}
-      >
-        {currentValue}
-      </Text>
+      <View style={styles.contentContainer}>
+        <Text
+          style={[
+            styles.timerText,
+            {
+              color: textColor,
+              fontSize: radius / 2,
+            },
+          ]}
+        >
+          {currentValue}
+        </Text>
+        {onReset && (
+          <View style={styles.resetButtonContainer}>
+            <ResetButton onReset={onReset} />
+          </View>
+        )}
+      </View>
     </View>
   );
 });
@@ -175,10 +185,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  timerText: {
+  contentContainer: {
     position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+    width: "100%",
+  },
+  timerText: {
     fontWeight: "bold",
     textAlign: "center",
+  },
+  resetButtonContainer: {
+    marginTop: 20,
   },
 });
 

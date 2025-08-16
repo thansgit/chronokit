@@ -61,6 +61,7 @@ export default function PlayerScreen() {
           gradientColors={["#8A2BE2", "#4169E1"]} // Purple to blue gradient
           textColor="white"
           cues={session.cues}
+          onReset={resetTimer}
         />
       )}
       <PlayPauseButton
