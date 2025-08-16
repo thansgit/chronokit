@@ -5,30 +5,30 @@ export type Session = {
   cues: Cue[];
 };
 
-type SoundCue = {
+export type TriggerCue = {
   id: string;
-  type: "sound";
-  duration: number;
+  type: "trigger";
+  startTime: number;
   color: string;
   soundId: string;
 };
 
-type SilenceCue = {
+export type SegmentCue = {
   id: string;
-  type: "silence";
+  type: "segment";
+  startTime: number;
   duration: number;
   color: string;
+  imageId?: string; // Optional image to be shown during the segment
 };
 
-type Cue = SoundCue | SilenceCue;
+export type Cue = TriggerCue | SegmentCue;
 
-// Helper-funktio startTimejen laskemiseen
-function getCuesWithStartTimes(cues: Cue[]): (Cue & { startTime: number })[] {
-  let currentTime = 0;
+// This helper function is no longer needed as startTime is now part of the cue types
+// Keeping it for backward compatibility if needed
+function getCuesWithStartTimes(cues: Cue[]): Cue[] {
   return cues.map((cue) => {
-    const cueWithStart = { ...cue, startTime: currentTime };
-    currentTime += cue.duration;
-    return cueWithStart;
+    return cue;
   });
 }
 
@@ -38,10 +38,27 @@ export const mockSession: Session = {
   name: "Test Session",
   totalDuration: 30,
   cues: [
-    { id: "2", type: "silence", duration: 2, color: "#444" },
-    { id: "1", type: "sound", duration: 2, color: "#FFD700", soundId: "gong" },
-    { id: "3", type: "sound", duration: 2, color: "#FF4500", soundId: "bell" },
-    { id: "4", type: "silence", duration: 2, color: "#444" },
+    {
+      id: "1",
+      type: "trigger",
+      startTime: 4,
+      color: "#FFD700",
+      soundId: "gong",
+    },
+    {
+      id: "2",
+      type: "segment",
+      startTime: 10,
+      duration: 5,
+      color: "green",
+    },
+    {
+      id: "3",
+      type: "trigger",
+      startTime: 20,
+      color: "#FF4500",
+      soundId: "bell",
+    },
   ],
 };
 

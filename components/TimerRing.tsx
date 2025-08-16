@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
+import { Cue } from "../assets/data/mock";
 
 interface TimerRingProps {
   totalDuration: number; // Total duration in seconds
@@ -13,6 +14,7 @@ interface TimerRingProps {
   dashCount?: number; // Number of dashes in the circle
   dashWidth?: number; // Width of each dash
   gradientColors?: string[]; // Colors for gradient
+  cues?: Cue[]; // Optional cues for coloring segments
 }
 
 // Use React.memo to prevent unnecessary re-renders
@@ -27,6 +29,7 @@ const TimerRing = memo(function TimerRing({
   dashCount = 10,
   dashWidth = 3,
   gradientColors = ["#8A2BE2", "#4169E1"], // Purple to blue gradient
+  cues = []
 }: TimerRingProps) {
   console.log("TimerRing rendered");
 
@@ -53,27 +56,65 @@ const TimerRing = memo(function TimerRing({
   // Calculate how many segments should be colored vs background
   const coloredSegments = Math.floor(dashCount * (1 - progress));
 
-  // Create an array of dash segments with different colors
+  // Create an array of dash segments with different colors based on cues
   const dashSegments = useMemo(() => {
     const segments = [];
-
+    const useCues = cues && cues.length > 0;
+    
+    // Calculate the time represented by each segment
+    const timePerSegment = totalDuration / dashCount;
+    
     for (let i = 0; i < dashCount; i++) {
       // Determine if this segment should be colored or background
       const isColored = i < coloredSegments;
-      const segmentColor = isColored ? ringColor : backgroundColor;
-
+      let segmentColor = isColored ? ringColor : backgroundColor;
+      
+      // If we have cues, determine the color based on which cue this segment falls into
+      if (useCues && isColored) {
+        // We need to map the segment index to actual time in the timer
+        // Since the timer counts down, we need to reverse the index to get time from start
+        const timeFromStart = totalDuration - ((i + 0.5) * timePerSegment);
+        const segmentStartTime = totalDuration - ((i + 1) * timePerSegment);
+        const segmentEndTime = totalDuration - (i * timePerSegment);
+        
+        // Find which cue this segment belongs to
+        for (const cue of cues!) {
+          // For trigger cues, check if this segment is at the trigger point
+          if (cue.type === 'trigger') {
+            const triggerTimePosition = cue.startTime;
+            
+            // Only color the dash if it's exactly at the trigger point
+            if (segmentStartTime <= triggerTimePosition && triggerTimePosition < segmentEndTime) {
+              segmentColor = cue.color;
+              break;
+            }
+          } 
+          // For segment cues, check if this segment is within the segment duration
+          else if (cue.type === 'segment') {
+            const cueStartTime = cue.startTime;
+            const cueEndTime = cueStartTime + cue.duration;
+            
+            // Color the dash if it's within the segment
+            if (timeFromStart >= cueStartTime && timeFromStart < cueEndTime) {
+              segmentColor = cue.color;
+              break;
+            }
+          }
+        }
+      }
+      
       // Calculate the angle for this segment
       const startAngle = i * segmentAngle; // Start at top (12 o'clock)
-
+      
       segments.push({
         id: i,
         color: segmentColor,
         angle: startAngle,
       });
     }
-
+    
     return segments;
-  }, [dashCount, coloredSegments, ringColor, backgroundColor, segmentAngle]);
+  }, [dashCount, coloredSegments, ringColor, backgroundColor, segmentAngle, cues, totalDuration]);
 
   return (
     <View style={styles.container}>

@@ -60,6 +60,7 @@ export default function PlayerScreen() {
           dashWidth={3}
           gradientColors={["#8A2BE2", "#4169E1"]} // Purple to blue gradient
           textColor="white"
+          cues={session.cues}
         />
       )}
       <PlayPauseButton
