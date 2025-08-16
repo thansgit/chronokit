@@ -36,7 +36,7 @@ function getCuesWithStartTimes(cues: Cue[]): (Cue & { startTime: number })[] {
 export const mockSession: Session = {
   id: "test-session-1",
   name: "Test Session",
-  totalDuration: 10,
+  totalDuration: 30,
   cues: [
     { id: "2", type: "silence", duration: 2, color: "#444" },
     { id: "1", type: "sound", duration: 2, color: "#FFD700", soundId: "gong" },

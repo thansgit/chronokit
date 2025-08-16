@@ -3,7 +3,7 @@ import { PlayPauseButton } from "@/components/PlayPauseButton";
 import TimerRing from "@/components/TimerRing";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 export default function PlayerScreen() {
   // Use selector pattern to minimize re-renders
@@ -50,13 +50,18 @@ export default function PlayerScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Player screen</Text>
-      <TimerRing
-        totalDuration={session!.totalDuration}
-        currentValue={remainingSec}
-        ringColor="green"
-        backgroundColor="lightgreen"
-      />
+      {session && (
+        <TimerRing
+          totalDuration={session.totalDuration}
+          currentValue={remainingSec}
+          radius={160}
+          strokeWidth={15}
+          dashCount={60}
+          dashWidth={3}
+          gradientColors={["#8A2BE2", "#4169E1"]} // Purple to blue gradient
+          textColor="white"
+        />
+      )}
       <PlayPauseButton
         isPlaying={isRunning}
         onToggle={() => {
