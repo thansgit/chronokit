@@ -1,8 +1,9 @@
 import { memo, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
 import { Cue } from "../assets/data/mock";
 import { ResetButton } from "./ResetButton";
+import { FormattedTimeDisplay } from "./FormattedTimeDisplay";
 
 interface TimerRingProps {
   totalDuration: number; // Total duration in seconds
@@ -159,7 +160,8 @@ const TimerRing = memo(function TimerRing({
         ))}
       </Svg>
       <View style={styles.contentContainer}>
-        <Text
+        <FormattedTimeDisplay
+          seconds={currentValue}
           style={[
             styles.timerText,
             {
@@ -167,9 +169,7 @@ const TimerRing = memo(function TimerRing({
               fontSize: radius / 2,
             },
           ]}
-        >
-          {currentValue}
-        </Text>
+        />
         {onReset && (
           <View style={styles.resetButtonContainer}>
             <ResetButton onReset={onReset} />
