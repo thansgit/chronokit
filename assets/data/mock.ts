@@ -5,12 +5,26 @@ export type Session = {
   cues: Cue[];
 };
 
+// Sound can be either a predefined sound effect or text-to-speech
+export type SoundCue = {
+  type: 'sound';
+  soundId: string; // Reference to a sound file like "gong", "bell", etc.
+} | {
+  type: 'tts';
+  text: string; // Text to be spoken
+  options?: {
+    language?: string;
+    pitch?: number;
+    rate?: number;
+  };
+};
+
 export type TriggerCue = {
   id: string;
   type: "trigger";
   startTime: number;
   color: string;
-  soundId: string;
+  sound?: SoundCue;
 };
 
 export type SegmentCue = {
@@ -19,6 +33,7 @@ export type SegmentCue = {
   startTime: number;
   duration: number;
   color: string;
+  sound?: SoundCue;
   imageId?: string; // Optional image to be shown during the segment
 };
 
@@ -43,7 +58,10 @@ export const mockSession: Session = {
       type: "trigger",
       startTime: 4,
       color: "#FFD700",
-      soundId: "gong",
+      sound: {
+        type: 'sound',
+        soundId: "gong"
+      }
     },
     {
       id: "2",
@@ -51,14 +69,35 @@ export const mockSession: Session = {
       startTime: 10,
       duration: 5,
       color: "green",
+      sound: {
+        type: 'tts',
+        text: "Starting intense phase"
+      }
     },
     {
       id: "3",
       type: "trigger",
       startTime: 20,
       color: "#FF4500",
-      soundId: "bell",
+      sound: {
+        type: 'sound',
+        soundId: "bell"
+      }
     },
+    {
+      id: "4",
+      type: "trigger",
+      startTime: 30,
+      color: "#4169E1",
+      sound: {
+        type: 'tts',
+        text: "Halfway point reached",
+        options: {
+          rate: 0.8,
+          pitch: 1.2
+        }
+      }
+    }
   ],
 };
 
