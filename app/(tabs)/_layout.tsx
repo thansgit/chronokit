@@ -4,6 +4,7 @@ import { Tabs } from "expo-router";
 export default function TabLayout() {
   return (
     <Tabs
+      initialRouteName="setup"
       screenOptions={{
         tabBarActiveTintColor: "#ffd33d",
         headerStyle: {
@@ -16,6 +17,19 @@ export default function TabLayout() {
         },
       }}
     >
+      <Tabs.Screen
+        name="setup"
+        options={{
+          title: "Setup",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "timer" : "timer-outline"}
+              color={color}
+              size={24}
+            />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{
