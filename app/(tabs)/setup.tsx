@@ -97,8 +97,8 @@ export default function SessionSetupScreen() {
     return hours * 3600 + minutes * 60 + seconds;
   };
 
-  // Create a new session and navigate to player
-  const createSession = () => {
+  // Create a new session with default cues
+  const createSession = (navigateTo: string = "/") => {
     const totalDuration = calculateTotalDuration();
     if (totalDuration === 0) return; // Don't create empty sessions
 
@@ -134,7 +134,17 @@ export default function SessionSetupScreen() {
     };
 
     setSession(newSession);
-    router.push("/");
+    router.push(navigateTo as any);
+  };
+  
+  // Start session immediately
+  const startSession = () => {
+    createSession("/");
+  };
+  
+  // Configure cues before starting
+  const configureCues = () => {
+    createSession("/builder");
   };
 
   return (
@@ -147,16 +157,29 @@ export default function SessionSetupScreen() {
 
       <NumPad onPress={handleNumpadPress} onDelete={handleDelete} />
 
-      <TouchableOpacity
-        style={[
-          styles.startButton,
-          calculateTotalDuration() === 0 ? styles.disabledButton : null,
-        ]}
-        onPress={createSession}
-        disabled={calculateTotalDuration() === 0}
-      >
-        <Text style={styles.startButtonText}>Start Session</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.startButton,
+            calculateTotalDuration() === 0 ? styles.disabledButton : null,
+          ]}
+          onPress={startSession}
+          disabled={calculateTotalDuration() === 0}
+        >
+          <Text style={styles.startButtonText}>Start Session</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.configButton,
+            calculateTotalDuration() === 0 ? styles.disabledButton : null,
+          ]}
+          onPress={configureCues}
+          disabled={calculateTotalDuration() === 0}
+        >
+          <Text style={styles.configButtonText}>Configure Cues</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -169,13 +192,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
   },
+  buttonContainer: {
+    width: "100%",
+    marginTop: 40,
+  },
   startButton: {
     backgroundColor: "#ffd33d",
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 25,
-    marginTop: 40,
-    minWidth: 200,
+    marginBottom: 15,
+    alignItems: "center",
+  },
+  configButton: {
+    backgroundColor: "#4169E1",
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
     alignItems: "center",
   },
   disabledButton: {
@@ -184,6 +217,11 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: "#25292e",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  configButtonText: {
+    color: "white",
     fontSize: 18,
     fontWeight: "bold",
   },
