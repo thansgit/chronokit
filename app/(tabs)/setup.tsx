@@ -1,13 +1,15 @@
 import { NumPad } from "@/components/NumPad";
 import { TimeInput } from "@/components/TimeInput";
 import { useSessionStore } from "@/stores/useSessionStore";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function SessionSetupScreen() {
   const router = useRouter();
   const setSession = useSessionStore((state) => state.setSession);
+  const startTimer = useSessionStore((state) => state.startTimer);
 
   // State for time input
   const [timeInput, setTimeInput] = useState({
@@ -136,12 +138,14 @@ export default function SessionSetupScreen() {
     setSession(newSession);
     router.push(navigateTo as any);
   };
-  
+
   // Start session immediately
   const startSession = () => {
     createSession("/");
+    // Start the timer automatically
+    setTimeout(() => startTimer(), 100); // Small delay to ensure navigation completes first
   };
-  
+
   // Configure cues before starting
   const configureCues = () => {
     createSession("/builder");
@@ -160,24 +164,26 @@ export default function SessionSetupScreen() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
+            styles.circleButton,
             styles.startButton,
             calculateTotalDuration() === 0 ? styles.disabledButton : null,
           ]}
           onPress={startSession}
           disabled={calculateTotalDuration() === 0}
         >
-          <Text style={styles.startButtonText}>Start Session</Text>
+          <Ionicons name="play" size={46} color="black" />
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={[
+            styles.circleButton,
             styles.configButton,
             calculateTotalDuration() === 0 ? styles.disabledButton : null,
           ]}
           onPress={configureCues}
           disabled={calculateTotalDuration() === 0}
         >
-          <Text style={styles.configButtonText}>Configure Cues</Text>
+          <Ionicons name="settings" size={46} color="black" />
         </TouchableOpacity>
       </View>
     </View>
@@ -193,36 +199,34 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
     width: "100%",
     marginTop: 40,
+    gap: 20,
+  },
+  circleButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
   },
   startButton: {
-    backgroundColor: "#ffd33d",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    marginBottom: 15,
-    alignItems: "center",
+    backgroundColor: "orange",
   },
   configButton: {
-    backgroundColor: "#4169E1",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    alignItems: "center",
+    backgroundColor: "orange",
   },
   disabledButton: {
     backgroundColor: "#555",
     opacity: 0.7,
   },
-  startButtonText: {
-    color: "#25292e",
-    fontSize: 18,
+  buttonText: {
+    fontSize: 12,
     fontWeight: "bold",
-  },
-  configButtonText: {
+    marginTop: 5,
     color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
+    textAlign: "center",
   },
 });

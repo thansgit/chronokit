@@ -129,7 +129,7 @@ export default function PlayerScreen() {
           strokeWidth={15}
           dashCount={60}
           dashWidth={3}
-          gradientColors={["#8A2BE2", "#4169E1"]} // Purple to blue gradient
+          gradientColors={["#FFA500", "#FF4433"]} // Purple to blue gradient
           textColor="white"
           cues={session.cues}
           onReset={resetTimer}
@@ -146,7 +146,7 @@ export default function PlayerScreen() {
             }
           }}
         />
-        <MuteToggleButton size={30} color="#FF0000" style={styles.muteButton} />
+        <MuteToggleButton size={46} color="black" style={styles.muteButton} />
       </View>
     </View>
   );
@@ -163,10 +163,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 40,
+    gap: 20,
   },
   muteButton: {
-    marginLeft: 20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "orange",
+    justifyContent: "center",
+    alignItems: "center",
   },
   text: {
     color: "#fff",
