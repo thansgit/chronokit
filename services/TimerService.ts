@@ -205,13 +205,13 @@ class TimerService {
         ...currentSession,
         totalDuration,
         // Update the end cue to match the new duration
-        cues: currentSession.cues.map(cue => {
+        cues: currentSession.cues.map((cue) => {
           // Find the end cue (assuming it's the last one or has the same time as totalDuration)
           if (cue.startTime === currentSession.totalDuration) {
             return { ...cue, startTime: totalDuration };
           }
           return cue;
-        })
+        }),
       };
 
       // Set the updated session in the store

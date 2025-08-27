@@ -27,12 +27,12 @@ export default function InputCueScreen() {
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [isAddingCue, setIsAddingCue] = useState(false);
 
-  // Initialize cues from session
+  // Initialize cues from session when the selected session changes (by ID)
   useEffect(() => {
     if (session?.cues) {
       setCues([...session.cues]);
     }
-  }, [session]);
+  }, [session?.id]);
 
   // Handle cue selection
   const handleCueSelect = (cue: Cue) => {
@@ -43,18 +43,21 @@ export default function InputCueScreen() {
     console.log("Modal should open with existing cue data");
   };
 
-  // Handle adding a new cue
+  // Handle adding a new cue (snap to integer seconds)
   const handleAddCue = (timePosition: number) => {
     console.log("handleAddCue called with timePosition:", timePosition);
 
     // Generate a simple ID
     const generateId = () => Math.random().toString(36).substring(2, 10);
 
-    // Create a new cue at the specified time position
+    const total = session?.totalDuration ?? Infinity;
+    const roundedStart = Math.max(0, Math.min(total, Math.round(timePosition)));
+
+    // Create a new cue at the specified (rounded) time position
     const newCue: Cue = {
       id: generateId(),
       type: "trigger",
-      startTime: timePosition,
+      startTime: roundedStart,
       color: "#FF9800", // Default color
       sound: {
         type: "sound",
@@ -69,19 +72,42 @@ export default function InputCueScreen() {
     console.log("Modal should open for new cue configuration");
   };
 
-  // Handle saving a cue
+  // Handle saving a cue (normalize to integers and clamp)
   const handleSaveCue = (cue: Cue) => {
     console.log("handleSaveCue called with cue:", cue);
     console.log("isAddingCue:", isAddingCue);
 
+    const total = session?.totalDuration ?? Number.MAX_SAFE_INTEGER;
+    const normalizedStart = Math.max(
+      0,
+      Math.min(total, Math.round(cue.startTime))
+    );
+    const normalizedCue: Cue =
+      cue.type === "segment"
+        ? {
+            ...(cue as any),
+            startTime: normalizedStart,
+            duration: Math.max(1, Math.round((cue as any).duration || 0)),
+          }
+        : { ...cue, startTime: normalizedStart };
+
+    // Compute next cues based on action
+    const nextCues = isAddingCue
+      ? [...cues, normalizedCue]
+      : cues.map((c) => (c.id === normalizedCue.id ? normalizedCue : c));
+
+    // Update local state
     if (isAddingCue) {
-      // Add new cue
       console.log("Adding new cue to cues array");
-      setCues((prevCues) => [...prevCues, cue]);
     } else {
-      // Update existing cue
       console.log("Updating existing cue in cues array");
-      setCues((prevCues) => prevCues.map((c) => (c.id === cue.id ? cue : c)));
+    }
+    setCues(nextCues);
+
+    // Persist to session so PlayerScreen receives latest cues
+    if (session) {
+      const updatedSession = { ...session, cues: nextCues } as typeof session;
+      updateSession(updatedSession);
     }
 
     console.log("Closing modal");
@@ -91,13 +117,19 @@ export default function InputCueScreen() {
 
   // Handle deleting a cue
   const handleDeleteCue = (cueId: string) => {
-    setCues((prevCues) => prevCues.filter((c) => c.id !== cueId));
+    const nextCues = cues.filter((c) => c.id !== cueId);
+    setCues(nextCues);
+    if (session) {
+      const updatedSession = { ...session, cues: nextCues } as typeof session;
+      updateSession(updatedSession);
+    }
     setShowConfigPanel(false);
     setSelectedCue(null);
   };
 
   // Save cues and navigate to player screen
   const saveAndPlay = () => {
+    console.log("moro");
     if (session) {
       const updatedSession = {
         ...session,
@@ -106,11 +138,6 @@ export default function InputCueScreen() {
       setSession(updatedSession);
       router.push("/(tabs)/PlayerScreen");
     }
-  };
-
-  // Handle saving the session (kept for backward compatibility)
-  const handleSaveSession = () => {
-    saveAndPlay();
   };
 
   // If no session, show loading or redirect

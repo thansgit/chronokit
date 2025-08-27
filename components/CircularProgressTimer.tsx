@@ -1,7 +1,7 @@
+import { Cue } from "@/types";
 import { memo, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
-import { Cue } from "../assets/data/mock";
 import { ResetButton } from "./ResetButton";
 import { TimeDisplay } from "./TimeDisplay";
 
@@ -130,6 +130,8 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
     segmentAngle,
     cues,
     totalDuration,
+    progress,
+    currentValue,
   ]);
 
   return (

@@ -1,7 +1,7 @@
 import CircularProgressTimer from "@/components/CircularProgressTimer";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { useTimer } from "@/hooks/useTimer";
-import { useRouter, useNavigation } from "expo-router";
+import { useNavigation } from "expo-router";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -22,16 +22,16 @@ export default function PlayerScreen() {
 
   // Start timer when screen is focused (if coming from another screen)
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation.addListener("focus", () => {
       // Only start if we have a session and timer is not already running
       if (session && !isRunning) {
         startTimer();
       }
     });
-    
+
     return unsubscribe;
   }, [navigation, session, isRunning, startTimer]);
-  
+
   // Note: Cue triggering is now handled by the TimerService through the useTimer hook
 
   return (

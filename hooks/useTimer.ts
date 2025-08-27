@@ -1,8 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useTimerStore } from '@/stores/useTimerStore';
-import { useSessionStore } from '@/stores/useSessionStore';
-import { timerService } from '@/services/TimerService';
-import { Session } from '@/types';
+import { timerService } from "@/services/TimerService";
+import { useSessionStore } from "@/stores/useSessionStore";
+import { useTimerStore } from "@/stores/useTimerStore";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * Custom hook for timer functionality
@@ -30,12 +29,12 @@ export function useTimer() {
     if (!session) {
       return { elapsedSec: 0, remainingSec: 0, progress: 0 };
     }
-    
+
     const calculations = timerService.calculateTime(session.totalDuration);
     return {
       elapsedSec: calculations.elapsedSec,
       remainingSec: calculations.remainingSec,
-      progress: calculations.progress
+      progress: calculations.progress,
     };
   }, [session, now, isRunning]);
 
@@ -67,6 +66,6 @@ export function useTimer() {
     startTimer,
     stopTimer,
     resetTimer,
-    toggleTimer
+    toggleTimer,
   };
 }
