@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Cue, SoundCue } from "../assets/data/mock";
 
-interface CueConfigPanelProps {
+interface CueEditorProps {
   cue: Cue | null;
   onSave: (cue: Cue) => void;
   onDelete?: (cueId: string) => void;
@@ -34,13 +34,13 @@ const colorOptions = [
 // Predefined sound options
 const soundOptions = ["bell", "gong", "beep", "complete"];
 
-const CueConfigPanel = ({
+const CueEditor = ({
   cue,
   onSave,
   onDelete,
   onClose,
   maxTime,
-}: CueConfigPanelProps) => {
+}: CueEditorProps) => {
   // State for edited cue with default initialization
   const [editedCue, setEditedCue] = useState<Cue>({
     id: Math.random().toString(36).substring(2, 10),
@@ -53,14 +53,14 @@ const CueConfigPanel = ({
 
   // Initialize state when cue changes
   useEffect(() => {
-    console.log('CueConfigPanel useEffect triggered with cue:', cue);
-    
+    console.log("CueEditor useEffect triggered with cue:", cue);
+
     if (cue) {
-      console.log('Initializing with existing cue data');
+      console.log("Initializing with existing cue data");
       setEditedCue({ ...cue });
       setIsTTS(cue.sound?.type === "tts");
     } else {
-      console.log('No cue provided, using default values');
+      console.log("No cue provided, using default values");
       // Default values for a new cue
       setEditedCue({
         id: Math.random().toString(36).substring(2, 10),
@@ -74,11 +74,11 @@ const CueConfigPanel = ({
   }, [cue]);
 
   if (!editedCue) {
-    console.log('editedCue is null, not rendering CueConfigPanel');
+    console.log("editedCue is null, not rendering CueEditor");
     return null;
   }
-  
-  console.log('Rendering CueConfigPanel with editedCue:', editedCue);
+
+  console.log("Rendering CueEditor with editedCue:", editedCue);
 
   // Handle time change
   const handleTimeChange = (value: string, field: "startTime" | "duration") => {
@@ -162,12 +162,12 @@ const CueConfigPanel = ({
 
   // Handle save
   const handleSave = () => {
-    console.log('Save button pressed, editedCue:', editedCue);
+    console.log("Save button pressed, editedCue:", editedCue);
     if (editedCue) {
-      console.log('Calling onSave with editedCue');
+      console.log("Calling onSave with editedCue");
       onSave(editedCue);
     } else {
-      console.log('Cannot save: editedCue is null');
+      console.log("Cannot save: editedCue is null");
     }
   };
 
@@ -503,4 +503,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CueConfigPanel;
+export default CueEditor;

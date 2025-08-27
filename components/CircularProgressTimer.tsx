@@ -2,10 +2,10 @@ import { memo, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
 import { Cue } from "../assets/data/mock";
-import { FormattedTimeDisplay } from "./FormattedTimeDisplay";
 import { ResetButton } from "./ResetButton";
+import { TimeDisplay } from "./TimeDisplay";
 
-interface TimerRingProps {
+interface CircularProgressTimerProps {
   totalDuration: number; // Total duration in seconds
   currentValue: number; // Current timer value to display
   radius?: number;
@@ -21,7 +21,7 @@ interface TimerRingProps {
 }
 
 // Use React.memo to prevent unnecessary re-renders
-const TimerRing = memo(function TimerRing({
+const CircularProgressTimer = memo(function CircularProgressTimer({
   totalDuration,
   currentValue,
   radius = 160,
@@ -34,8 +34,9 @@ const TimerRing = memo(function TimerRing({
   gradientColors = ["#FFA500", "#FF4433"], // Purple to blue gradient
   cues = [],
   onReset,
-}: TimerRingProps) {
-  console.log("TimerRing rendered");
+}: CircularProgressTimerProps) {
+  // Force refresh of component
+  console.log("CircularProgressTimer component rendered");
 
   const halfCircle = radius + strokeWidth;
   const circleCircumference = 2 * Math.PI * radius;
@@ -171,7 +172,7 @@ const TimerRing = memo(function TimerRing({
         ))}
       </Svg>
       <View style={styles.contentContainer}>
-        <FormattedTimeDisplay
+        <TimeDisplay
           seconds={currentValue}
           style={[
             styles.timerText,
@@ -212,4 +213,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TimerRing;
+export default CircularProgressTimer;

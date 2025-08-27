@@ -1,62 +1,54 @@
 import { create } from "zustand";
-import { Session } from "../assets/data/mock";
+import { Session } from "@/types";
 
 interface SessionState {
   // State
   session: Session | null;
-  isRunning: boolean;
-  startAt: number | null; // ms timestamp when started
-  elapsedOffsetMs: number; // accumulated elapsed across pauses
+  sessions: Session[];
 
   // Actions
   setSession: (session: Session) => void;
-  startTimer: () => void;
-  stopTimer: () => void;
-  resetTimer: () => void;
+  addSession: (session: Session) => void;
+  updateSession: (session: Session) => void;
+  deleteSession: (sessionId: string) => void;
+  getSessionById: (sessionId: string) => Session | undefined;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
   // Initial state
   session: null,
-  isRunning: false,
-  startAt: null,
-  elapsedOffsetMs: 0,
+  sessions: [],
 
   // Actions
   setSession: (session) => {
-    set({
-      session,
-      isRunning: false,
-      startAt: null,
-      elapsedOffsetMs: 0,
-    });
+    set({ session });
   },
 
-  startTimer: () => {
-    const { session, isRunning, startAt } = get();
-    if (!session || isRunning) return;
-    set({ isRunning: true, startAt: Date.now() });
+  addSession: (session) => {
+    set((state) => ({
+      sessions: [...state.sessions, session],
+    }));
   },
 
-  stopTimer: () => {
-    const { isRunning, startAt, elapsedOffsetMs } = get();
-    if (!isRunning || startAt == null) {
-      set({ isRunning: false, startAt: null });
-      return;
-    }
-    const delta = Date.now() - startAt;
-    set({
-      isRunning: false,
-      startAt: null,
-      elapsedOffsetMs: elapsedOffsetMs + delta,
-    });
+  updateSession: (updatedSession) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === updatedSession.id ? updatedSession : s
+      ),
+      // Also update current session if it's the one being updated
+      session: state.session?.id === updatedSession.id ? updatedSession : state.session,
+    }));
   },
 
-  resetTimer: () => {
-    set({
-      isRunning: false,
-      startAt: null,
-      elapsedOffsetMs: 0,
-    });
+  deleteSession: (sessionId) => {
+    set((state) => ({
+      sessions: state.sessions.filter((s) => s.id !== sessionId),
+      // Clear current session if it's the one being deleted
+      session: state.session?.id === sessionId ? null : state.session,
+    }));
+  },
+
+  getSessionById: (sessionId) => {
+    return get().sessions.find((s) => s.id === sessionId);
   },
 }));

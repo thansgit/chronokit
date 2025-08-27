@@ -2,12 +2,12 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-interface NumPadProps {
+interface TimeNumPadProps {
   onPress: (value: string) => void;
   onDelete: () => void;
 }
 
-export const NumPad: React.FC<NumPadProps> = ({ onPress, onDelete }) => {
+export const TimeNumPad: React.FC<TimeNumPadProps> = ({ onPress, onDelete }) => {
   const renderButton = (value: string) => (
     <TouchableOpacity
       style={styles.button}

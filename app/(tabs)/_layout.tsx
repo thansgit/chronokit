@@ -1,10 +1,12 @@
+import { PlayerControlTabBar } from "@/components/PlayerControlTabBar";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
 
 export default function TabLayout() {
   return (
     <Tabs
-      initialRouteName="setup"
+      initialRouteName="InputDurationScreen"
+      tabBar={(props) => <PlayerControlTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: "#ffd33d",
         headerStyle: {
@@ -18,9 +20,9 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="setup"
+        name="InputDurationScreen"
         options={{
-          title: "Setup",
+          title: "InputDuration",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "timer" : "timer-outline"}
@@ -31,7 +33,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="PlayerScreen"
         options={{
           title: "Player",
           tabBarIcon: ({ color, focused }) => (
@@ -48,9 +50,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="builder"
+        name="InputCueScreen"
         options={{
-          title: "Builder",
+          title: "InputCue",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "cog" : "cog-outline"}

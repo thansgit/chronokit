@@ -1,13 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-interface TimeInputProps {
+interface DurationInputProps {
   hours: string;
   minutes: string;
   seconds: string;
 }
 
-export const TimeInput: React.FC<TimeInputProps> = ({ hours, minutes, seconds }) => {
+export const DurationInput: React.FC<DurationInputProps> = ({ hours, minutes, seconds }) => {
   // Check if each segment has a non-zero value
   const hoursValue = parseInt(hours || '0', 10);
   const minutesValue = parseInt(minutes || '0', 10);

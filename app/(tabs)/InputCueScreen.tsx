@@ -1,9 +1,10 @@
 import { Cue } from "@/assets/data/mock";
-import CueConfigPanel from "@/components/CueConfigPanel";
-import VerticalDashedTimeline from "@/components/VerticalDashedTimeline";
-import { useSessionStore } from "@/stores/useSessionStore";
+import CueEditor from "@/components/CueEditor";
+import SessionTimeline from "@/components/SessionTimeline";
+import { useSession } from "@/hooks/useSession";
+import { useTimer } from "@/hooks/useTimer";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -14,10 +15,11 @@ import {
   View,
 } from "react-native";
 
-export default function BuilderScreen() {
+export default function InputCueScreen() {
   const router = useRouter();
-  const session = useSessionStore((state) => state.session);
-  const setSession = useSessionStore((state) => state.setSession);
+  const params = useLocalSearchParams();
+  const { session, setSession, updateSession } = useSession();
+  const { startTimer } = useTimer();
 
   // State for cues
   const [cues, setCues] = useState<Cue[]>([]);
@@ -29,11 +31,8 @@ export default function BuilderScreen() {
   useEffect(() => {
     if (session?.cues) {
       setCues([...session.cues]);
-    } else {
-      // If no session, redirect to setup
-      router.replace("/setup");
     }
-  }, [session, router]);
+  }, [session]);
 
   // Handle cue selection
   const handleCueSelect = (cue: Cue) => {
@@ -97,16 +96,21 @@ export default function BuilderScreen() {
     setSelectedCue(null);
   };
 
-  // Handle saving the session
-  const handleSaveSession = () => {
+  // Save cues and navigate to player screen
+  const saveAndPlay = () => {
     if (session) {
       const updatedSession = {
         ...session,
         cues,
       };
       setSession(updatedSession);
-      router.push("/"); // Navigate to player
+      router.push("/(tabs)/PlayerScreen");
     }
+  };
+
+  // Handle saving the session (kept for backward compatibility)
+  const handleSaveSession = () => {
+    saveAndPlay();
   };
 
   // If no session, show loading or redirect
@@ -127,7 +131,7 @@ export default function BuilderScreen() {
       </Text>
 
       <ScrollView style={styles.timelineContainer}>
-        <VerticalDashedTimeline
+        <SessionTimeline
           totalDuration={session.totalDuration}
           dashCount={Math.min(120, session.totalDuration)} // Max 120 dashes or one per second
           cues={cues}
@@ -147,10 +151,7 @@ export default function BuilderScreen() {
         <Ionicons name="add" size={24} color="#25292e" />
       </TouchableOpacity>
 
-      {/* Save Button */}
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveSession}>
-        <Text style={styles.saveButtonText}>Save & Play</Text>
-      </TouchableOpacity>
+      {/* Save & Play button removed - functionality moved to tab bar play button */}
 
       {/* Cue Configuration Modal */}
       <Modal
@@ -162,7 +163,7 @@ export default function BuilderScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <CueConfigPanel
+            <CueEditor
               cue={selectedCue}
               onSave={handleSaveCue}
               onDelete={!isAddingCue ? handleDeleteCue : undefined}

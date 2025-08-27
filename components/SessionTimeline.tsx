@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop, Circle } from "react-native-svg";
 import { Cue } from "../assets/data/mock";
 
-interface VerticalDashedTimelineProps {
+interface SessionTimelineProps {
   totalDuration: number; // Total duration in seconds
   dashCount?: number; // Number of dashes in the timeline
   dashWidth?: number; // Width of each dash
@@ -16,7 +16,7 @@ interface VerticalDashedTimelineProps {
   onCueAdd?: (timePosition: number) => void;
 }
 
-const VerticalDashedTimeline = memo(function VerticalDashedTimeline({
+const SessionTimeline = memo(function SessionTimeline({
   totalDuration,
   dashCount = 60, // Default to 60 dashes (e.g., one per second for a 1-minute session)
   dashWidth = 3,
@@ -27,7 +27,7 @@ const VerticalDashedTimeline = memo(function VerticalDashedTimeline({
   cues = [],
   onCueSelect,
   onCueAdd,
-}: VerticalDashedTimelineProps) {
+}: SessionTimelineProps) {
   // Calculate dimensions
   const timelineHeight = (dashWidth + dashGap) * dashCount;
   const timelineWidth = lineWidth;
@@ -266,4 +266,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VerticalDashedTimeline;
+export default SessionTimeline;

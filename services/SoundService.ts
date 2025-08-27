@@ -1,10 +1,20 @@
+import { useSoundStore } from "@/stores/useSoundStore";
+import { SoundCue, SoundEffectId } from "@/types";
 import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
-import { SoundCue } from "../assets/data/mock";
 
 class SoundService {
   private sounds: Record<string, Audio.Sound> = {};
-  private isMuted: boolean = false;
+
+  // Get mute state from the store
+  private get isMuted(): boolean {
+    return useSoundStore.getState().isMuted;
+  }
+
+  // Get volume from the store
+  private get volume(): number {
+    return useSoundStore.getState().volume;
+  }
 
   constructor() {
     this.preloadSounds();
@@ -13,7 +23,7 @@ class SoundService {
   // Preload common sounds for better performance
   async preloadSounds() {
     try {
-      // These paths are placeholders - you'll need to add actual sound files
+      // These paths are placeholders - need to add actual sound files
       const soundsToLoad: Record<string, any> = {
         beep: require("../assets/sounds/beep.mp3"),
         gong: require("../assets/sounds/gong.wav"),
@@ -33,7 +43,7 @@ class SoundService {
   }
 
   // Play a preloaded sound
-  async playSound(soundId: string) {
+  async playSound(soundId: SoundEffectId) {
     if (this.isMuted) return;
 
     try {
@@ -79,7 +89,7 @@ class SoundService {
 
     try {
       if (soundCue.type === "sound") {
-        await this.playSound(soundCue.soundId);
+        await this.playSound(soundCue.soundId as SoundEffectId);
       } else if (soundCue.type === "tts") {
         await this.speak(soundCue.text, soundCue.options);
       }
@@ -88,26 +98,36 @@ class SoundService {
     }
   }
 
-  // Toggle mute status
+  // Toggle mute status using the store
   toggleMute() {
-    this.isMuted = !this.isMuted;
-    if (this.isMuted) {
+    const newMuteState = useSoundStore.getState().toggleMute();
+    if (newMuteState) {
       Speech.stop();
       // Stop all playing sounds
       Object.values(this.sounds).forEach((sound) => {
         sound.stopAsync().catch(() => {});
       });
     }
-    return this.isMuted;
+    return newMuteState;
   }
 
-  // Set mute status directly
+  // Set mute status directly using the store
   setMute(muted: boolean) {
-    this.isMuted = muted;
-    if (this.isMuted) {
+    useSoundStore.getState().setMute(muted);
+    if (muted) {
       Speech.stop();
     }
-    return this.isMuted;
+    return muted;
+  }
+
+  // Set volume using the store
+  setVolume(volume: number) {
+    useSoundStore.getState().setVolume(volume);
+    // Apply volume to all sounds
+    Object.values(this.sounds).forEach((sound) => {
+      sound.setVolumeAsync(volume).catch(() => {});
+    });
+    return volume;
   }
 
   // Clean up resources
@@ -116,7 +136,7 @@ class SoundService {
       for (const sound of Object.values(this.sounds)) {
         await sound.unloadAsync();
       }
-      this.sounds = {};
+      this.sounds = {} as Record<string, Audio.Sound>;
     } catch (error) {
       console.error("Error unloading sounds:", error);
     }

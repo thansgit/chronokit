@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { soundService } from '../services/SoundService';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, TouchableOpacity } from "react-native";
+import { useSound } from "../hooks/useSound";
 
 type Props = {
   size?: number;
@@ -9,26 +9,24 @@ type Props = {
   style?: any;
 };
 
-export function MuteToggleButton({ size = 24, color = "#FFFFFF", style }: Props) {
-  const [isMuted, setIsMuted] = useState(false);
-
-  // Toggle mute state
-  const toggleMute = () => {
-    const newMuteState = soundService.toggleMute();
-    setIsMuted(newMuteState);
-  };
+export function MuteToggleButton({
+  size = 24,
+  color = "#FFFFFF",
+  style,
+}: Props) {
+  const { isMuted, toggleMute } = useSound();
 
   return (
-    <TouchableOpacity 
-      onPress={toggleMute} 
+    <TouchableOpacity
+      onPress={toggleMute}
       style={[styles.container, style]}
       accessibilityLabel={isMuted ? "Unmute sounds" : "Mute sounds"}
       accessibilityRole="button"
     >
-      <Ionicons 
-        name={isMuted ? "volume-mute" : "volume-high"} 
-        size={size} 
-        color={color} 
+      <Ionicons
+        name={isMuted ? "volume-mute" : "volume-high"}
+        size={size}
+        color={color}
       />
     </TouchableOpacity>
   );

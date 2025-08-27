@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, TextStyle } from 'react-native';
 
-interface FormattedTimeDisplayProps {
+interface TimeDisplayProps {
   seconds: number;
   style?: TextStyle | TextStyle[];
 }
@@ -32,6 +32,6 @@ const formatTime = (seconds: number): string => {
   return seconds.toString();
 };
 
-export function FormattedTimeDisplay({ seconds, style }: FormattedTimeDisplayProps) {
+export function TimeDisplay({ seconds, style }: TimeDisplayProps) {
   return <Text style={style}>{formatTime(seconds)}</Text>;
 }

@@ -1,6 +1,6 @@
-# Welcome to your Expo app 👋
+# ChronoKit: Advanced Timer App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+ChronoKit is a sophisticated timer application built with Expo and React Native, designed for creating and managing complex timing sequences with customizable sound cues.
 
 ## Get started
 
@@ -34,6 +34,74 @@ npm run reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+## Project Architecture
+
+ChronoKit follows a layered architecture pattern with clear separation of concerns:
+
+### 1. Data Layer
+
+#### Types
+- Located in `/types` directory
+- Defines TypeScript interfaces and types for the application
+- Key types include `Session`, `Cue`, `TriggerCue`, and `SegmentCue`
+
+#### Stores
+- Located in `/stores` directory
+- Implements state management using Zustand
+- **Responsibility: State + setters only**
+- Contains no business logic, only state containers and simple setters
+- Separated into domain-specific stores:
+  - `useSessionStore`: Stores session data and provides setters
+  - `useTimerStore`: Maintains timer state (isRunning, startTime, etc.)
+  - `useSoundStore`: Holds sound settings (volume, mute state, etc.)
+
+### 2. Service Layer
+
+- Located in `/services` directory
+- **Responsibility: Pure business logic only**
+- Contains complex calculations, algorithms, and domain-specific operations
+- Framework-agnostic (no React dependencies)
+- No direct store access or state management
+- Key services:
+  - `TimerService`: Handles timer calculations, cue triggering logic
+  - `SoundService`: Manages sound playback and text-to-speech functionality
+
+### 3. Hook Layer
+
+- Located in `/hooks` directory
+- **Responsibility: Glue code + React lifecycle management**
+- Connects React components to services and stores
+- Orchestrates interactions between services and stores
+- Handles React-specific concerns (effects, memoization, etc.)
+- Provides clean, simplified APIs to components
+- Key hooks:
+  - `useTimer`: Connects timer UI to TimerService and timerStore
+  - `useSound`: Bridges sound UI controls to SoundService and soundStore
+  - `useSession`: Coordinates session operations between UI and sessionStore
+
+### 4. UI Layer
+
+- Located in `/app` and `/components` directories
+- Implements user interface using React Native components
+- Organized by screens and reusable components
+- Key screens:
+  - `index.tsx`: Main player screen
+  - `setup.tsx`: Session creation screen
+  - `builder.tsx`: Cue configuration screen
+
+### Data Flow
+
+1. **Component → Hook**: UI components call hook methods
+2. **Hook → Service**: Hooks delegate business logic to services
+3. **Hook → Store**: Hooks update application state via store actions
+4. **Store → Hook → Component**: State changes flow back to components
+
+### Navigation
+
+- Uses Expo Router with file-based routing
+- Tab-based navigation with custom tab bar component
+- Routes defined in `app/(tabs)/_layout.tsx`
 
 ## Learn more
 
