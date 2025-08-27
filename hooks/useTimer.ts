@@ -9,6 +9,9 @@ import { useEffect, useMemo, useState } from "react";
 export function useTimer() {
   const session = useSessionStore((state) => state.session);
   const isRunning = useTimerStore((state) => state.isRunning);
+  // Subscribe to startAt and elapsedOffsetMs so resets/pauses trigger recompute
+  const startAt = useTimerStore((state) => state.startAt);
+  const elapsedOffsetMs = useTimerStore((state) => state.elapsedOffsetMs);
   const startTimer = useTimerStore((state) => state.startTimer);
   const stopTimer = useTimerStore((state) => state.stopTimer);
   const resetTimer = useTimerStore((state) => state.resetTimer);
@@ -36,7 +39,7 @@ export function useTimer() {
       remainingSec: calculations.remainingSec,
       progress: calculations.progress,
     };
-  }, [session, now, isRunning]);
+  }, [session, now, isRunning, startAt, elapsedOffsetMs]);
 
   // Handle cue triggering
   useEffect(() => {
