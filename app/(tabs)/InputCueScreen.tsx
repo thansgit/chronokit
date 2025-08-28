@@ -2,6 +2,7 @@ import { Cue } from "@/assets/data/mock";
 import CueEditor from "@/components/CueEditor";
 import SessionTimeline from "@/components/SessionTimeline";
 import { useSession } from "@/hooks/useSession";
+import { formatDurationSpaced } from "@/helpers/format";
 import { useTimer } from "@/hooks/useTimer";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -153,8 +154,7 @@ export default function InputCueScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Session Builder</Text>
       <Text style={styles.subtitle}>
-        Total Duration: {Math.floor(session.totalDuration / 60)}:
-        {(session.totalDuration % 60).toString().padStart(2, "0")}
+        Total Duration: {formatDurationSpaced(session.totalDuration)}
       </Text>
 
       <ScrollView style={styles.timelineContainer}>

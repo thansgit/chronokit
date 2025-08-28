@@ -2,6 +2,7 @@ import { useSessionStore } from "@/stores/useSessionStore";
 import { useTimerStore } from "@/stores/useTimerStore";
 import { Session } from "@/types";
 import { soundService } from "./SoundService";
+import { formatSessionTitle } from "@/helpers/format";
 
 /**
  * Service for timer-related business logic
@@ -146,7 +147,7 @@ class TimerService {
 
     const newSession: Session = {
       id: generateId(),
-      name: `Session ${new Date().toLocaleTimeString()}`,
+      name: formatSessionTitle(totalDuration),
       totalDuration,
       cues: [
         {
@@ -201,8 +202,13 @@ class TimerService {
     // If there's an existing session, update it
     if (currentSession) {
       // Update the existing session with new duration
+      const prevDefault = formatSessionTitle(currentSession.totalDuration);
+      const nextDefault = formatSessionTitle(totalDuration);
+      const userCustomized = (currentSession.name ?? "").trim().length > 0 && (currentSession.name ?? "").trim() !== prevDefault;
+
       const updatedSession: Session = {
         ...currentSession,
+        name: userCustomized ? currentSession.name : nextDefault,
         totalDuration,
         // Update the end cue to match the new duration
         cues: currentSession.cues.map((cue) => {

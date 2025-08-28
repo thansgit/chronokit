@@ -22,7 +22,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="InputDurationScreen"
         options={{
-          title: "InputDuration",
+          title: "",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "timer" : "timer-outline"}
@@ -35,7 +35,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="PlayerScreen"
         options={{
-          title: "Player",
+          title: "",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={
@@ -52,7 +52,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="InputCueScreen"
         options={{
-          title: "InputCue",
+          title: "",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "cog" : "cog-outline"}
