@@ -3,18 +3,28 @@ import { TimeNumPad } from "@/components/TimeNumPad";
 import { useSession } from "@/hooks/useSession";
 import { timerService } from "@/services/TimerService";
 import { useTimerStore } from "@/stores/useTimerStore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { StyleSheet, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function InputDurationScreen() {
   const setTimeInputStore = useTimerStore((state) => state.setTimeInput);
-  const { setSession } = useSession();
+  const { setSession, session } = useSession();
 
   const [timeInput, setTimeInput] = useState({
     hours: "",
     minutes: "",
     seconds: "",
   });
+
+  // Reset local display when screen is focused and there is no current session (fresh New)
+  useFocusEffect(
+    useCallback(() => {
+      if (!session) {
+        setTimeInput({ hours: "00", minutes: "00", seconds: "00" });
+      }
+    }, [session])
+  );
 
   // Update timer store and create/update session whenever time input changes
   useEffect(() => {

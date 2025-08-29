@@ -210,8 +210,12 @@ class TimerService {
         totalDuration,
         // Update the end cue to match the new duration
         cues: currentSession.cues.map((cue) => {
-          // Find the end cue (assuming it's the last one or has the same time as totalDuration)
-          if (cue.startTime === currentSession.totalDuration) {
+          // Only retime the explicit end/complete cue
+          const isCompleteCue =
+            cue.type === "trigger" &&
+            cue.sound?.type === "sound" &&
+            cue.sound.soundId === "complete";
+          if (isCompleteCue && cue.startTime === currentSession.totalDuration) {
             return { ...cue, startTime: totalDuration };
           }
           return cue;
