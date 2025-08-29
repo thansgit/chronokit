@@ -1,7 +1,8 @@
 import React, { memo, useMemo } from "react";
 import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop, Circle } from "react-native-svg";
-import { Cue } from "../assets/data/mock";
+import { Cue } from "@/assets/data/mock";
+import { formatClock } from "@/helpers/format";
 
 interface SessionTimelineProps {
   totalDuration: number; // Total duration in seconds
@@ -126,9 +127,7 @@ const SessionTimeline = memo(function SessionTimeline({
         <View style={styles.timeLabelsContainer}>
           {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
             const timeValue = Math.floor(totalDuration * fraction);
-            const minutes = Math.floor(timeValue / 60);
-            const seconds = timeValue % 60;
-            const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            const formattedTime = formatClock(timeValue);
             
             return (
               <Text 

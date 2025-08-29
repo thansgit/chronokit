@@ -3,6 +3,7 @@ import { useTimerStore } from "@/stores/useTimerStore";
 import { Session } from "@/types";
 import { soundService } from "./SoundService";
 import { formatSessionTitle } from "@/helpers/format";
+import { generateId } from "@/helpers/id";
 
 /**
  * Service for timer-related business logic
@@ -141,9 +142,6 @@ class TimerService {
     const totalDuration = hoursNum * 3600 + minutesNum * 60 + secondsNum;
 
     if (totalDuration === 0) return null; // Don't create empty sessions
-
-    // Generate simple IDs without uuid dependency
-    const generateId = () => Math.random().toString(36).substring(2, 10);
 
     const newSession: Session = {
       id: generateId(),

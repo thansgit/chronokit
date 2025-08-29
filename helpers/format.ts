@@ -19,10 +19,39 @@ export function formatDurationShort(totalSeconds: number): string {
 }
 
 /**
+ * Pads a number to 2 digits with leading zero.
+ */
+export function pad2(n: number): string {
+  return Math.trunc(Math.abs(n)).toString().padStart(2, "0");
+}
+
+/**
+ * Formats seconds into a clock string:
+ *  - < 60: S
+ *  - < 3600: M:SS
+ *  - >= 3600: H:MM:SS
+ */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  if (s >= 3600) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${h}:${pad2(m)}:${pad2(sec)}`;
+  }
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${pad2(sec)}`;
+  }
+  return `${s}`;
+}
+
+/**
  * Formats a default session title using duration, e.g., "Session 30m10s".
  */
 export function formatSessionTitle(totalSeconds: number): string {
-  return `Session ${formatDurationShort(totalSeconds)}`;
+  return `Timer ${formatDurationShort(totalSeconds)}`;
 }
 
 /**

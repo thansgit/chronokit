@@ -3,6 +3,8 @@ import CueEditor from "@/components/CueEditor";
 import SessionTimeline from "@/components/SessionTimeline";
 import { useSession } from "@/hooks/useSession";
 import { formatDurationSpaced } from "@/helpers/format";
+import { generateId } from "@/helpers/id";
+import { normalizeCue } from "@/helpers/cue";
 import { useTimer } from "@/hooks/useTimer";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -48,9 +50,6 @@ export default function InputCueScreen() {
   const handleAddCue = (timePosition: number) => {
     console.log("handleAddCue called with timePosition:", timePosition);
 
-    // Generate a simple ID
-    const generateId = () => Math.random().toString(36).substring(2, 10);
-
     const total = session?.totalDuration ?? Infinity;
     const roundedStart = Math.max(0, Math.min(total, Math.round(timePosition)));
 
@@ -79,18 +78,7 @@ export default function InputCueScreen() {
     console.log("isAddingCue:", isAddingCue);
 
     const total = session?.totalDuration ?? Number.MAX_SAFE_INTEGER;
-    const normalizedStart = Math.max(
-      0,
-      Math.min(total, Math.round(cue.startTime))
-    );
-    const normalizedCue: Cue =
-      cue.type === "segment"
-        ? {
-            ...(cue as any),
-            startTime: normalizedStart,
-            duration: Math.max(1, Math.round((cue as any).duration || 0)),
-          }
-        : { ...cue, startTime: normalizedStart };
+    const normalizedCue: Cue = normalizeCue(cue, total);
 
     // Compute next cues based on action
     const nextCues = isAddingCue
