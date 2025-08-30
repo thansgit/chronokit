@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Cue, SoundCue } from "../assets/data/mock";
+import { Cue, SoundCue } from "@/types";
 
 interface CueEditorProps {
   cue: Cue | null;

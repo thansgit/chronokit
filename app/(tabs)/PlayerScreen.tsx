@@ -1,13 +1,17 @@
 import CircularProgressTimer from "@/components/CircularProgressTimer";
+import CueEditor from "@/components/CueEditor";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { useTimer } from "@/hooks/useTimer";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Modal, FlatList } from "react-native";
 import { useSessionStore } from "@/stores/useSessionStore";
-import { formatSessionTitle } from "@/helpers/format";
+import { formatClock, formatSessionTitle } from "@/helpers/format";
 import { Ionicons } from "@expo/vector-icons";
 import { useTimerStore } from "@/stores/useTimerStore";
+import { normalizeCue } from "@/helpers/cue";
+import { generateId } from "@/helpers/id";
+import { Cue } from "@/types";
 
 export default function PlayerScreen() {
   // Get timer state from hook
@@ -37,6 +41,17 @@ export default function PlayerScreen() {
   const [localName, setLocalName] = useState<string>("");
   const inputRef = useRef<TextInput>(null);
   const [showSavedModal, setShowSavedModal] = useState(false);
+
+  // Scrub state for ring interaction
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+  const [scrubPos, setScrubPos] = useState<{ x: number; y: number } | null>(null);
+  const [confirmAddVisible, setConfirmAddVisible] = useState(false);
+  const [draftStartTime, setDraftStartTime] = useState<number | null>(null);
+
+  // Cue editor modal state
+  const [cueEditorVisible, setCueEditorVisible] = useState(false);
+  const [editingCue, setEditingCue] = useState<Cue | null>(null);
 
   // Default title derived from duration
   const defaultTitle = useMemo(() => {
@@ -144,19 +159,43 @@ export default function PlayerScreen() {
           )}
         </View>
       )}
+      {/* Static scrub readout under session name */}
+      {isScrubbing && scrubTime != null && (
+        <Text style={styles.scrubReadout}>{formatClock(Math.round(scrubTime))}</Text>
+      )}
       {session && (
-        <CircularProgressTimer
-          totalDuration={session.totalDuration}
-          currentValue={remainingSec}
-          radius={160}
-          strokeWidth={15}
-          dashCount={60}
-          dashWidth={3}
-          gradientColors={["#FFA500", "#FF4433"]} // Purple to blue gradient
-          textColor="white"
-          cues={session.cues}
-          onReset={resetTimer}
-        />
+        <View style={styles.timerBox}>
+          <CircularProgressTimer
+            totalDuration={session.totalDuration}
+            currentValue={remainingSec}
+            radius={160}
+            strokeWidth={15}
+            dashCount={60}
+            dashWidth={3}
+            gradientColors={["#FFA500", "#FF4433"]} // Purple to blue gradient
+            textColor="white"
+            cues={session.cues}
+            onReset={resetTimer}
+            allowScrub={!isRunning}
+            onScrubStart={() => {
+              if (isRunning) return; // guard
+              setIsScrubbing(true);
+            }}
+            onScrub={({ time, x, y }) => {
+              if (isRunning) return;
+              setScrubTime(time);
+              setScrubPos({ x, y });
+            }}
+            onScrubEnd={({ time, x, y }) => {
+              if (isRunning) return;
+              setIsScrubbing(false);
+              setScrubTime(time);
+              setScrubPos({ x, y });
+              setDraftStartTime(time);
+              setConfirmAddVisible(true);
+            }}
+          />
+        </View>
       )}
       <View style={styles.controlsContainer}>
         <MuteToggleButton size={46} color="black" style={styles.muteButton} />
@@ -251,6 +290,84 @@ export default function PlayerScreen() {
                 </View>
               )}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Confirm Add Cue Modal */}
+      <Modal
+        visible={confirmAddVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmAddVisible(false)}
+      >
+        <View style={styles.smallModalBackdrop}>
+          <View style={styles.smallModalCard}>
+            <Text style={styles.smallModalTitle}>
+              Add cue at {formatClock(Math.round(draftStartTime ?? 0))}?
+            </Text>
+            <View style={styles.smallModalRow}>
+              <TouchableOpacity
+                style={[styles.smallPill, { backgroundColor: "#3a3f47" }]}
+                onPress={() => {
+                  setConfirmAddVisible(false);
+                }}
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+                <Text style={styles.smallPillText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.smallPill, { backgroundColor: "#3a8b55" }]}
+                onPress={() => {
+                  if (!session || draftStartTime == null) return;
+                  // Open editor with prefilled cue
+                  const newCue: Cue = {
+                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    type: "trigger",
+                    startTime: Math.round(draftStartTime),
+                    color: "#FF9800",
+                    sound: { type: "sound", soundId: "bell" },
+                  };
+                  setEditingCue(newCue);
+                  setCueEditorVisible(true);
+                  setConfirmAddVisible(false);
+                }}
+              >
+                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Text style={styles.smallPillText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cue Editor Modal */}
+      <Modal
+        visible={cueEditorVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCueEditorVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { maxHeight: "80%" }]}> 
+            {session && (
+              <CueEditor
+                cue={editingCue}
+                maxTime={session.totalDuration}
+                onSave={(cue) => {
+                  if (!session) return;
+                  const normalized = normalizeCue(cue as any, session.totalDuration);
+                  const updated = { ...session, cues: [...session.cues, normalized] };
+                  updateSession(updated);
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                }}
+                onClose={() => {
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                }}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -365,6 +482,32 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     maxHeight: "70%",
   },
+  smallModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  smallModalCard: {
+    backgroundColor: "#2b2f36",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 12,
+    width: 260,
+  },
+  smallModalTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  smallModalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -389,6 +532,34 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  tooltip: {
+    position: "absolute",
+    backgroundColor: "#000",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderColor: "#fff",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tooltipText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  timerBox: {
+    position: "relative",
+    width: 320,
+    height: 320,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrubReadout: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 4,
+    marginBottom: 8,
   },
   emptyText: {
     color: "#bbb",

@@ -1,6 +1,11 @@
 import { Cue } from "@/types";
-import { memo, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { memo, useMemo, useCallback } from "react";
+import {
+  PanResponder,
+  StyleSheet,
+  View,
+  GestureResponderEvent,
+} from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
 import { ResetButton } from "./ResetButton";
 import { TimeDisplay } from "./TimeDisplay";
@@ -18,6 +23,11 @@ interface CircularProgressTimerProps {
   gradientColors?: string[]; // Colors for gradient
   cues?: Cue[]; // Optional cues for coloring segments
   onReset?: () => void; // Reset callback function
+  // Scrub (drag) support around the ring
+  allowScrub?: boolean;
+  onScrubStart?: () => void;
+  onScrub?: (info: { angle: number; time: number; x: number; y: number }) => void;
+  onScrubEnd?: (info: { angle: number; time: number; x: number; y: number }) => void;
 }
 
 // Use React.memo to prevent unnecessary re-renders
@@ -34,6 +44,10 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
   gradientColors = ["#FFA500", "#FF4433"], // Purple to blue gradient
   cues = [],
   onReset,
+  allowScrub = false,
+  onScrubStart,
+  onScrub,
+  onScrubEnd,
 }: CircularProgressTimerProps) {
   // Force refresh of component
   console.log("CircularProgressTimer component rendered");
@@ -134,6 +148,72 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
     currentValue,
   ]);
 
+  // --- Scrub gesture support ---
+  const annulusInner = Math.max(0, radius - strokeWidth * 2); // thicker hit area
+  const annulusOuter = radius + strokeWidth * 2;
+
+  const mapTouchToAngleTime = useCallback(
+    (evt: GestureResponderEvent) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      // Coordinates relative to the overlay view sized radius*2
+      const cx = radius;
+      const cy = radius;
+      const dx = locationX - cx;
+      const dy = locationY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Hit-test: only accept touches in ring annulus
+      const inRing = dist >= annulusInner && dist <= annulusOuter;
+      // Compute angle (0 at 12 o'clock, clockwise)
+      const rad = Math.atan2(dy, dx); // [-pi, pi], 0 along +x (3 o'clock)
+      const degFrom3 = (rad * 180) / Math.PI;
+      const normFrom3 = (degFrom3 + 360) % 360; // [0, 360)
+      const angle = (normFrom3 + 90) % 360; // rotate so 0 at 12 o'clock
+
+      // Map to time (snap to 1 second). Invert so earlier times are on the left side.
+      const rawTime = (angle / 360) * totalDuration;
+      const snapped = Math.round(rawTime);
+      const time = Math.max(0, Math.min(totalDuration, totalDuration - snapped));
+
+      return { inRing, angle, time, x: locationX, y: locationY };
+    },
+    [radius, annulusInner, annulusOuter, totalDuration]
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: (evt) => {
+          if (!allowScrub) return false;
+          const { inRing } = mapTouchToAngleTime(evt);
+          return inRing;
+        },
+        onMoveShouldSetPanResponder: () => false,
+        onPanResponderGrant: (evt) => {
+          if (!allowScrub) return;
+          const info = mapTouchToAngleTime(evt);
+          if (!info.inRing) return;
+          onScrubStart && onScrubStart();
+          onScrub && onScrub(info);
+        },
+        onPanResponderMove: (evt) => {
+          if (!allowScrub) return;
+          const info = mapTouchToAngleTime(evt);
+          if (!info.inRing) return;
+          onScrub && onScrub(info);
+        },
+        onPanResponderRelease: (evt) => {
+          if (!allowScrub) return;
+          const info = mapTouchToAngleTime(evt);
+          if (!info.inRing) return;
+          onScrubEnd && onScrubEnd(info);
+        },
+        onPanResponderTerminationRequest: () => true,
+        onPanResponderTerminate: () => {},
+      }),
+    [allowScrub, mapTouchToAngleTime, onScrubStart, onScrub, onScrubEnd]
+  );
+
   return (
     <View style={styles.container}>
       <Svg
@@ -173,6 +253,14 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
           </G>
         ))}
       </Svg>
+      {/* Gesture overlay for scrubbing */}
+      {allowScrub && (
+        <View
+          style={[styles.gestureOverlay, { width: radius * 2, height: radius * 2 }]}
+          pointerEvents={allowScrub ? "auto" : "none"}
+          {...panResponder.panHandlers}
+        />
+      )}
       <View style={styles.contentContainer}>
         <TimeDisplay
           seconds={currentValue}
@@ -198,6 +286,14 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  gestureOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent",
   },
   contentContainer: {
     position: "absolute",

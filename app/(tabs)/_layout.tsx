@@ -49,19 +49,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="InputCueScreen"
-        options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "cog" : "cog-outline"}
-              color={color}
-              size={24}
-            />
-          ),
-        }}
-      />
+      {/* Removed old builder tab: InputCueScreen */}
     </Tabs>
   );
 }

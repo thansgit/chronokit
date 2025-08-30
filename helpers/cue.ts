@@ -1,4 +1,4 @@
-import { Cue } from "@/assets/data/mock";
+import { Cue } from "@/types";
 
 /**
  * Normalize a cue with respect to total session duration.
