@@ -44,8 +44,6 @@ export default function PlayerScreen() {
 
   // Scrub state for ring interaction
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const [scrubTime, setScrubTime] = useState<number | null>(null);
-  const [scrubPos, setScrubPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmAddVisible, setConfirmAddVisible] = useState(false);
   const [draftStartTime, setDraftStartTime] = useState<number | null>(null);
 
@@ -159,10 +157,7 @@ export default function PlayerScreen() {
           )}
         </View>
       )}
-      {/* Static scrub readout under session name */}
-      {isScrubbing && scrubTime != null && (
-        <Text style={styles.scrubReadout}>{formatClock(Math.round(scrubTime))}</Text>
-      )}
+      {/* Removed extra scrub readout to avoid duplicate display during dragging */}
       {session && (
         <View style={styles.timerBox}>
           <CircularProgressTimer
@@ -183,14 +178,11 @@ export default function PlayerScreen() {
             }}
             onScrub={({ time, x, y }) => {
               if (isRunning) return;
-              setScrubTime(time);
-              setScrubPos({ x, y });
+              // No external readout; keep only internal overlay
             }}
             onScrubEnd={({ time, x, y }) => {
               if (isRunning) return;
               setIsScrubbing(false);
-              setScrubTime(time);
-              setScrubPos({ x, y });
               setDraftStartTime(time);
               setConfirmAddVisible(true);
             }}
@@ -553,13 +545,6 @@ const styles = StyleSheet.create({
     height: 320,
     alignItems: "center",
     justifyContent: "center",
-  },
-  scrubReadout: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 4,
-    marginBottom: 8,
   },
   emptyText: {
     color: "#bbb",

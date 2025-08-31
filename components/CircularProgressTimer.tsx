@@ -1,14 +1,17 @@
+import { angleFromPoint, timeFromAngle } from "@/helpers/timerMapping";
 import { Cue } from "@/types";
-import { memo, useMemo, useCallback } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
+  GestureResponderEvent,
   PanResponder,
   StyleSheet,
   View,
-  GestureResponderEvent,
+  Text,
 } from "react-native";
 import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
 import { ResetButton } from "./ResetButton";
 import { TimeDisplay } from "./TimeDisplay";
+import { formatClock } from "@/helpers/format";
 
 interface CircularProgressTimerProps {
   totalDuration: number; // Total duration in seconds
@@ -26,8 +29,22 @@ interface CircularProgressTimerProps {
   // Scrub (drag) support around the ring
   allowScrub?: boolean;
   onScrubStart?: () => void;
-  onScrub?: (info: { angle: number; time: number; x: number; y: number }) => void;
-  onScrubEnd?: (info: { angle: number; time: number; x: number; y: number }) => void;
+  onScrub?: (info: {
+    angle: number;
+    time: number;
+    x: number;
+    y: number;
+    elapsed: number;
+    dashIndex: number;
+  }) => void;
+  onScrubEnd?: (info: {
+    angle: number;
+    time: number;
+    x: number;
+    y: number;
+    elapsed: number;
+    dashIndex: number;
+  }) => void;
 }
 
 // Use React.memo to prevent unnecessary re-renders
@@ -55,6 +72,11 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
   const halfCircle = radius + strokeWidth;
   const circleCircumference = 2 * Math.PI * radius;
 
+  // Scrub UI state
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubElapsed, setScrubElapsed] = useState<number | null>(null); // seconds from start
+  const [scrubDashIndex, setScrubDashIndex] = useState<number | null>(null);
+
   // Calculate dash array for the dashed circle effect
   const strokeDashArray = useMemo(() => {
     const totalDashSpace = dashWidth * dashCount;
@@ -71,6 +93,7 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
   // We'll create individual dash segments and hide them as the timer progresses
   const segmentAngle = 360 / dashCount;
   const segmentLength = circleCircumference / dashCount;
+  const activeDashColor = "#FFFFFF"; // highlight color for current drag position
 
   // Calculate how many segments should be colored vs background
   const coloredSegments = Math.floor(dashCount * (1 - progress));
@@ -164,20 +187,22 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
 
       // Hit-test: only accept touches in ring annulus
       const inRing = dist >= annulusInner && dist <= annulusOuter;
-      // Compute angle (0 at 12 o'clock, clockwise)
-      const rad = Math.atan2(dy, dx); // [-pi, pi], 0 along +x (3 o'clock)
-      const degFrom3 = (rad * 180) / Math.PI;
-      const normFrom3 = (degFrom3 + 360) % 360; // [0, 360)
-      const angle = (normFrom3 + 90) % 360; // rotate so 0 at 12 o'clock
+      // Compute angle using helper (0 at 12 o'clock, clockwise)
+      const angle = angleFromPoint(cx, cy, locationX, locationY);
 
-      // Map to time (snap to 1 second). Invert so earlier times are on the left side.
-      const rawTime = (angle / 360) * totalDuration;
-      const snapped = Math.round(rawTime);
-      const time = Math.max(0, Math.min(totalDuration, totalDuration - snapped));
+      // Map to time using helper (elapsed seconds), then convert to remaining
+      const elapsed = timeFromAngle(angle, totalDuration, 1);
+      const time = Math.max(
+        0,
+        Math.min(totalDuration, totalDuration - elapsed)
+      );
 
-      return { inRing, angle, time, x: locationX, y: locationY };
+      // Determine which dash index is under the finger
+      const dashIndex = Math.floor(angle / segmentAngle) % dashCount;
+
+      return { inRing, angle, time, elapsed, dashIndex, x: locationX, y: locationY } as const;
     },
-    [radius, annulusInner, annulusOuter, totalDuration]
+    [radius, annulusInner, annulusOuter, totalDuration, segmentAngle, dashCount]
   );
 
   const panResponder = useMemo(
@@ -195,18 +220,26 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
           if (!info.inRing) return;
           onScrubStart && onScrubStart();
           onScrub && onScrub(info);
+          setIsScrubbing(true);
+          setScrubElapsed(info.elapsed);
+          setScrubDashIndex(info.dashIndex);
         },
         onPanResponderMove: (evt) => {
           if (!allowScrub) return;
           const info = mapTouchToAngleTime(evt);
           if (!info.inRing) return;
           onScrub && onScrub(info);
+          setScrubElapsed(info.elapsed);
+          setScrubDashIndex(info.dashIndex);
         },
         onPanResponderRelease: (evt) => {
           if (!allowScrub) return;
           const info = mapTouchToAngleTime(evt);
           if (!info.inRing) return;
           onScrubEnd && onScrubEnd(info);
+          setIsScrubbing(false);
+          setScrubElapsed(null);
+          setScrubDashIndex(null);
         },
         onPanResponderTerminationRequest: () => true,
         onPanResponderTerminate: () => {},
@@ -241,37 +274,67 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
             rotation={segment.angle}
             origin={`${halfCircle}, ${halfCircle}`}
           >
-            <Line
-              x1={halfCircle}
-              y1={halfCircle - radius + strokeWidth / 2}
-              x2={halfCircle}
-              y2={halfCircle - radius - strokeWidth / 2}
-              stroke={segment.color}
-              strokeWidth={dashWidth}
-              strokeLinecap="round"
-            />
+            {/** Highlight the dash under finger during scrubbing */}
+            {isScrubbing && scrubDashIndex === segment.id ? (
+              <Line
+                x1={halfCircle}
+                y1={halfCircle - radius + strokeWidth / 2}
+                x2={halfCircle}
+                y2={halfCircle - radius - strokeWidth / 2}
+                stroke={activeDashColor}
+                strokeWidth={dashWidth + 2}
+                strokeLinecap="round"
+              />
+            ) : (
+              <Line
+                x1={halfCircle}
+                y1={halfCircle - radius + strokeWidth / 2}
+                x2={halfCircle}
+                y2={halfCircle - radius - strokeWidth / 2}
+                stroke={segment.color}
+                strokeWidth={dashWidth}
+                strokeLinecap="round"
+              />
+            )}
           </G>
         ))}
       </Svg>
       {/* Gesture overlay for scrubbing */}
       {allowScrub && (
         <View
-          style={[styles.gestureOverlay, { width: radius * 2, height: radius * 2 }]}
+          style={[
+            styles.gestureOverlay,
+            { width: radius * 2, height: radius * 2 },
+          ]}
           pointerEvents={allowScrub ? "auto" : "none"}
           {...panResponder.panHandlers}
         />
       )}
       <View style={styles.contentContainer}>
-        <TimeDisplay
-          seconds={currentValue}
-          style={[
-            styles.timerText,
-            {
-              color: textColor,
-              fontSize: radius / 2,
-            },
-          ]}
-        />
+        {isScrubbing && scrubElapsed !== null ? (
+          <Text
+            style={[
+              styles.timerText,
+              {
+                color: textColor,
+                fontSize: radius / 4,
+              },
+            ]}
+          >
+            {`Adding cue at:\n${formatClock(Math.max(0, Math.min(totalDuration, totalDuration - scrubElapsed)))}`}
+          </Text>
+        ) : (
+          <TimeDisplay
+            seconds={currentValue}
+            style={[
+              styles.timerText,
+              {
+                color: textColor,
+                fontSize: radius / 2,
+              },
+            ]}
+          />
+        )}
         {onReset && (
           <View style={styles.resetButtonContainer}>
             <ResetButton onReset={onReset} />
