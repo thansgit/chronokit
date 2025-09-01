@@ -1,10 +1,11 @@
 import CircularProgressTimer from "@/components/CircularProgressTimer";
 import CueEditor from "@/components/CueEditor";
-import { MuteToggleButton } from "@/components/MuteToggleButton";
+import ControlsBar from "@/components/ControlsBar";
+import SavedSessionsModal from "@/components/SavedSessionsModal";
 import { useTimer } from "@/hooks/useTimer";
 import { useNavigation, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Modal, FlatList } from "react-native";
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Modal } from "react-native";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { formatClock, formatSessionTitle } from "@/helpers/format";
 import { Ionicons } from "@expo/vector-icons";
@@ -189,102 +190,33 @@ export default function PlayerScreen() {
           />
         </View>
       )}
-      <View style={styles.controlsContainer}>
-        <MuteToggleButton size={46} color="black" style={styles.muteButton} />
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => {
-            startNewSession();
-            resetTimerStore();
-            router.push("/(tabs)/InputDurationScreen");
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Create new session"
-        >
-          <Ionicons name="add-circle-outline" size={20} color="#fff" />
-          <Text style={styles.secondaryButtonText}>New</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => saveCurrentSession()}
-          accessibilityRole="button"
-          accessibilityLabel="Save session"
-        >
-          <Ionicons name="save-outline" size={20} color="#fff" />
-          <Text style={styles.secondaryButtonText}>Save</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => setShowSavedModal(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Open saved sessions"
-        >
-          <Ionicons name="folder-open-outline" size={20} color="#fff" />
-          <Text style={styles.secondaryButtonText}>Saved</Text>
-        </TouchableOpacity>
-      </View>
+      <ControlsBar
+        onNew={() => {
+          startNewSession();
+          resetTimerStore();
+          router.push("/(tabs)/InputDurationScreen");
+        }}
+        onSave={() => saveCurrentSession()}
+        onOpenSaved={() => setShowSavedModal(true)}
+      />
 
       {/* Saved Sessions Modal */}
-      <Modal
+      <SavedSessionsModal
         visible={showSavedModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowSavedModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Saved Sessions</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                <TouchableOpacity
-                  style={styles.smallPill}
-                  onPress={() => {
-                    startNewSession();
-                    resetTimerStore();
-                    setShowSavedModal(false);
-                    router.push("/(tabs)/InputDurationScreen");
-                  }}
-                >
-                  <Ionicons name="add" size={16} color="#fff" />
-                  <Text style={styles.smallPillText}>New</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowSavedModal(false)}>
-                  <Ionicons name="close" size={22} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            <FlatList
-              data={sessions}
-              keyExtractor={(item) => item.id}
-              ListEmptyComponent={
-                <Text style={styles.emptyText}>No saved sessions yet</Text>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.sessionRow}>
-                  <TouchableOpacity
-                    style={styles.sessionInfo}
-                    onPress={() => {
-                      selectSession(item.id);
-                      setShowSavedModal(false);
-                    }}
-                  >
-                    <Text style={styles.sessionName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteBtn}
-                    onPress={() => deleteSession(item.id)}
-                    accessibilityLabel="Delete session"
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        sessions={sessions}
+        onNew={() => {
+          startNewSession();
+          resetTimerStore();
+          setShowSavedModal(false);
+          router.push("/(tabs)/InputDurationScreen");
+        }}
+        onClose={() => setShowSavedModal(false)}
+        onSelect={(id) => {
+          selectSession(id);
+          setShowSavedModal(false);
+        }}
+        onDelete={(id) => deleteSession(id)}
+      />
 
       {/* Confirm Add Cue Modal */}
       <Modal
