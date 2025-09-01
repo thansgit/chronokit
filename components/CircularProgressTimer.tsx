@@ -122,25 +122,18 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
 
         // Find which cue this segment belongs to
         for (const cue of cues!) {
-          // For trigger cues, check if this segment is at the trigger point
-          if (cue.type === "trigger") {
-            const triggerTimePosition = cue.startTime;
-
-            // Only color the dash if it's exactly at the trigger point
-            if (
-              segmentStartTime <= triggerTimePosition &&
-              triggerTimePosition < segmentEndTime
-            ) {
+          const dur = cue.duration ?? 0;
+          if (dur <= 0) {
+            // Trigger: color the dash that aligns with startTime
+            const t = cue.startTime;
+            if (segmentStartTime <= t && t < segmentEndTime) {
               segmentColor = cue.color;
               break;
             }
-          }
-          // For segment cues, check if this segment is within the segment duration
-          else if (cue.type === "segment") {
+          } else {
+            // Segment: color if dash center is within [start, start+duration)
             const cueStartTime = cue.startTime;
-            const cueEndTime = cueStartTime + cue.duration;
-
-            // Color the dash if it's within the segment
+            const cueEndTime = cueStartTime + dur;
             if (timeFromStart >= cueStartTime && timeFromStart < cueEndTime) {
               segmentColor = cue.color;
               break;

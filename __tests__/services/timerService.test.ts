@@ -83,6 +83,73 @@ describe('services/TimerService', () => {
     });
   });
 
+  describe('phases and repeat expansion (via checkCues)', () => {
+    it('triggers per-phase sounds across repeated cycles (cycles)', () => {
+      const session: Session = {
+        id: 's-ph1',
+        name: 'Phases cycles',
+        totalDuration: 40,
+        cues: [
+          {
+            id: 'pc1',
+            startTime: 5,
+            color: '#123',
+            phases: [
+              { duration: 2, sound: { type: 'tts', text: 'phase A' } },
+              { duration: 3, sound: { type: 'tts', text: 'phase B' } },
+            ],
+            repeat: { cycles: 2 },
+          } as any,
+        ],
+      };
+
+      timerService.resetTriggeredCues();
+
+      // Cycle 0: boundaries at 5, 7
+      timerService.checkCues(session, 5.01 as any, true);
+      timerService.checkCues(session, 7.01 as any, true);
+      // Cycle 1: starts at 10, boundaries at 10, 12
+      timerService.checkCues(session, 10.01 as any, true);
+      timerService.checkCues(session, 12.01 as any, true);
+
+      expect(soundService.playCue).toHaveBeenCalledTimes(4);
+      expect(soundService.playCue.mock.calls[0][0]).toEqual({ type: 'tts', text: 'phase A' });
+      expect(soundService.playCue.mock.calls[1][0]).toEqual({ type: 'tts', text: 'phase B' });
+      expect(soundService.playCue.mock.calls[2][0]).toEqual({ type: 'tts', text: 'phase A' });
+      expect(soundService.playCue.mock.calls[3][0]).toEqual({ type: 'tts', text: 'phase B' });
+    });
+
+    it('stops repeating when untilTime reached (untilTime)', () => {
+      const session: Session = {
+        id: 's-ph2',
+        name: 'Phases until',
+        totalDuration: 40,
+        cues: [
+          {
+            id: 'pu1',
+            startTime: 5,
+            color: '#456',
+            phases: [
+              { duration: 2, sound: { type: 'sound', soundId: 'beep' } },
+              { duration: 2, sound: { type: 'sound', soundId: 'beep' } },
+            ],
+            repeat: { untilTime: 9 }, // sequence length = 4, starts at 5 -> will emit at 5 and 7, next cycle at 9 is past until -> not emitted
+          } as any,
+        ],
+      };
+
+      timerService.resetTriggeredCues();
+      timerService.checkCues(session, 5.01 as any, true); // phase 0
+      timerService.checkCues(session, 7.01 as any, true); // phase 1
+      // Next cycle would start at 9; boundary equals untilTime, expandCue guards to not exceed until
+      timerService.checkCues(session, 9.01 as any, true);
+
+      expect(soundService.playCue).toHaveBeenCalledTimes(2);
+      expect(soundService.playCue).toHaveBeenNthCalledWith(1, { type: 'sound', soundId: 'beep' });
+      expect(soundService.playCue).toHaveBeenNthCalledWith(2, { type: 'sound', soundId: 'beep' });
+    });
+  });
+
   describe('checkCues()', () => {
     it('triggers trigger cues once and dedupes further calls', () => {
       const session: Session = {
@@ -92,7 +159,6 @@ describe('services/TimerService', () => {
         cues: [
           {
             id: 'c1',
-            type: 'trigger',
             startTime: 5,
             color: '#f00',
             sound: { type: 'tts', text: 'Go' },
@@ -123,7 +189,6 @@ describe('services/TimerService', () => {
         cues: [
           {
             id: 'seg1',
-            type: 'segment',
             startTime: 10,
             duration: 5,
             color: '#0f0',
@@ -182,12 +247,14 @@ describe('services/TimerService', () => {
       expect(sess!.cues.length).toBe(2);
 
       const startCue = sess!.cues[0];
-      expect(startCue.type).toBe('trigger');
+      // Trigger inferred by missing/<=0 duration
+      expect(startCue.duration).toBeUndefined();
       expect(startCue.startTime).toBe(0);
       expect(startCue.sound).toEqual({ type: 'tts', text: 'Session started' });
 
       const endCue = sess!.cues[1];
-      expect(endCue.type).toBe('trigger');
+      // Trigger inferred by missing/<=0 duration
+      expect(endCue.duration).toBeUndefined();
       expect(endCue.startTime).toBe(65);
       expect(endCue.sound).toEqual({ type: 'sound', soundId: 'complete' });
     });
@@ -198,9 +265,9 @@ describe('services/TimerService', () => {
         name: 'Timer 1m',
         totalDuration: 60,
         cues: [
-          { id: 'start', type: 'trigger', startTime: 0, color: '#111', sound: { type: 'tts', text: 'Session started' } },
-          { id: 'end', type: 'trigger', startTime: 60, color: '#222', sound: { type: 'sound', soundId: 'complete' } },
-          { id: 'other', type: 'trigger', startTime: 30, color: '#333' },
+          { id: 'start', startTime: 0, color: '#111', sound: { type: 'tts', text: 'Session started' } },
+          { id: 'end', startTime: 60, color: '#222', sound: { type: 'sound', soundId: 'complete' } },
+          { id: 'other', startTime: 30, color: '#333' },
         ],
       };
 
@@ -227,8 +294,8 @@ describe('services/TimerService', () => {
         name: 'My Custom',
         totalDuration: 60,
         cues: [
-          { id: 'start', type: 'trigger', startTime: 0, color: '#111', sound: { type: 'tts', text: 'Session started' } },
-          { id: 'end', type: 'trigger', startTime: 60, color: '#222', sound: { type: 'sound', soundId: 'complete' } },
+          { id: 'start', startTime: 0, color: '#111', sound: { type: 'tts', text: 'Session started' } },
+          { id: 'end', startTime: 60, color: '#222', sound: { type: 'sound', soundId: 'complete' } },
         ],
       };
 

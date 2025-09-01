@@ -248,9 +248,8 @@ export default function PlayerScreen() {
                   // Open editor with prefilled cue
                   const newCue: Cue = {
                     id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
-                    type: "trigger",
                     startTime: Math.round(draftStartTime),
-                    color: TYPE_COLORS.trigger, // Fixed blue for triggers
+                    color: TYPE_COLORS.trigger, // trigger = no duration
                     sound: { type: "sound", soundId: "bell" },
                   };
                   setEditingCue(newCue);

@@ -15,30 +15,40 @@ export interface Session {
 }
 
 /**
- * Union type for all cue types
+ * Unified Cue type
+ * - Instant trigger: no duration
+ * - Segment: duration > 0
+ * - Pattern: phases[] with optional repeat
  */
-export type Cue = TriggerCue | SegmentCue;
-
-/**
- * A point-in-time cue that triggers at a specific time
- */
-export interface TriggerCue {
+export interface Cue {
   id: string;
-  type: "trigger";
-  startTime: number; // in seconds from session start
+  startTime: number; // seconds from session start
+  duration?: number; // optional; if present and >0, it's a segment
   color: string;
   sound?: SoundCue;
+  imageId?: string;
+  label?: string;
+  // Pattern extensions (optional)
+  phases?: CuePhase[];
+  repeat?: CueRepeat;
 }
 
 /**
- * A cue that spans a duration of time
+ * Pattern phase inside a Cue. Each phase can have its own sound and styling.
  */
-export interface SegmentCue {
-  id: string;
-  type: "segment";
-  startTime: number; // in seconds from session start
-  duration: number; // in seconds
-  color: string;
+export interface CuePhase {
+  duration: number; // seconds, > 0
   sound?: SoundCue;
-  imageId?: string; // Optional image to be shown during the segment
+  label?: string;
+  color?: string;
 }
+
+/**
+ * Repeat options for a pattern (phases). Repeat for a number of cycles or until a time.
+ */
+export interface CueRepeat {
+  cycles?: number; // number of full phase-set repetitions
+  untilTime?: number; // absolute session time (sec)
+}
+
+// (Removed legacy TriggerCue/SegmentCue)

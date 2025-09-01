@@ -36,15 +36,27 @@ const CueEditor = ({
   // State for edited cue with default initialization
   const [editedCue, setEditedCue] = useState<Cue>({
     id: Math.random().toString(36).substring(2, 10),
-    type: "trigger",
     startTime: 0,
     color: TYPE_COLORS.trigger,
     sound: { type: "sound", soundId: soundOptions[0] },
+    duration: 0,
   });
   const [isTTS, setIsTTS] = useState(false);
   // Local state for pattern builder
   const [isPattern, setIsPattern] = useState(false);
-  const [patternInput, setPatternInput] = useState<string>("5-5-5-5");
+  // Editable phases for pattern builder
+  const [phases, setPhases] = useState<Array<{
+    duration: string;
+    label: string;
+    isTTS: boolean;
+    ttsText: string;
+    soundId: string;
+  }>>([{ duration: "5", label: "", isTTS: true, ttsText: "", soundId: soundOptions[0] }]);
+  // Repeat controls
+  const [repeatCycles, setRepeatCycles] = useState<string>("");
+  const [repeatUntilH, setRepeatUntilH] = useState<string>("0");
+  const [repeatUntilM, setRepeatUntilM] = useState<string>("0");
+  const [repeatUntilS, setRepeatUntilS] = useState<string>("0");
 
   // Local segmented inputs for Start Time and Duration
   const [startH, setStartH] = useState<string>("0");
@@ -60,12 +72,45 @@ const CueEditor = ({
 
     if (cue) {
       console.log("Initializing with existing cue data");
-      // Enforce color by type regardless of incoming color
-      const enforcedColor = cue.type === "trigger" ? TYPE_COLORS.trigger : TYPE_COLORS.segment;
+      // Enforce color by inferred type (duration presence)
+      const enforcedColor = cue.duration && cue.duration > 0 ? TYPE_COLORS.segment : TYPE_COLORS.trigger;
       setEditedCue({ ...cue, color: enforcedColor });
       setIsTTS(cue.sound?.type === "tts");
       // When editing an existing cue, default to non-pattern mode
-      setIsPattern(false);
+      const hasPhases = Array.isArray((cue as any).phases) && (cue as any).phases.length > 0;
+      setIsPattern(!!hasPhases);
+      if (hasPhases) {
+        const cps = (cue as any).phases as { duration: number; sound?: SoundCue; label?: string }[];
+        setPhases(
+          cps.map((p) => ({
+            duration: String(Math.max(1, Math.floor(p.duration || 0))),
+            label: p.label ?? "",
+            isTTS: p.sound?.type === "tts",
+            ttsText: p.sound?.type === "tts" ? (p.sound.text ?? "") : "",
+            soundId: p.sound?.type === "sound" ? (p.sound.soundId ?? soundOptions[0]) : soundOptions[0],
+          }))
+        );
+        const rep = (cue as any).repeat as { cycles?: number; untilTime?: number } | undefined;
+        if (rep?.cycles != null) setRepeatCycles(String(Math.max(0, Math.floor(rep.cycles))));
+        else setRepeatCycles("");
+        if (rep?.untilTime != null) {
+          const ut = Math.max(0, Math.floor(rep.untilTime));
+          setRepeatUntilH(String(Math.floor(ut / 3600)));
+          setRepeatUntilM(String(Math.floor((ut % 3600) / 60)));
+          setRepeatUntilS(String(ut % 60));
+        } else {
+          setRepeatUntilH("0");
+          setRepeatUntilM("0");
+          setRepeatUntilS("0");
+        }
+      } else {
+        // Reset pattern builder state when editing a non-pattern cue
+        setPhases([{ duration: "5", label: "", isTTS: true, ttsText: "", soundId: soundOptions[0] }]);
+        setRepeatCycles("");
+        setRepeatUntilH("0");
+        setRepeatUntilM("0");
+        setRepeatUntilS("0");
+      }
       // Initialize segmented fields from cue
       const s = Math.max(0, Math.floor(cue.startTime || 0));
       setStartH(String(Math.floor(s / 3600)));
@@ -80,7 +125,6 @@ const CueEditor = ({
       // Default values for a new cue
       setEditedCue({
         id: Math.random().toString(36).substring(2, 10),
-        type: "trigger",
         startTime: 0,
         color: TYPE_COLORS.trigger,
         sound: { type: "sound", soundId: soundOptions[0] },
@@ -110,6 +154,9 @@ const CueEditor = ({
     return Number.isFinite(n) && n >= 0 ? n : 0;
   };
   const clampSec = (sec: number) => Math.min(Math.max(0, sec), maxTime);
+
+  // Derived flags
+  const isSegment = (editedCue?.duration ?? 0) > 0;
 
   // Recompute startTime from H/M/S
   const recomputeStart = (hStr: string, mStr: string, sStr: string) => {
@@ -168,18 +215,17 @@ const CueEditor = ({
     });
   };
 
-  // Handle type toggle (trigger/segment/pattern)
+  // Handle type toggle (instant/segment/pattern) using unified Cue
   const handleTypeToggle = (type: "trigger" | "segment" | "pattern") => {
     setEditedCue((prev) => {
       if (type === "trigger") {
         // Convert to trigger - remove duration if it exists
         const { duration, ...triggerCue } = prev as any;
-        return { ...triggerCue, type, color: TYPE_COLORS.trigger };
+        return { ...triggerCue, color: TYPE_COLORS.trigger } as Cue;
       } else if (type === "segment") {
         // Convert to segment - add duration if it doesn't exist
         return {
           ...prev,
-          type,
           duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION, // Default duration
           color: TYPE_COLORS.segment,
         };
@@ -188,7 +234,6 @@ const CueEditor = ({
         setIsPattern(true);
         return {
           ...(prev as any),
-          type: "segment",
           duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION,
           color: TYPE_COLORS.segment,
         } as any;
@@ -197,44 +242,21 @@ const CueEditor = ({
     setIsPattern(type === "pattern");
   };
 
-  // Expand pattern string to numbers
-  const parsePattern = (input: string): number[] => {
-    // Accept delimiters like '-', ',', ' ' and filter non-positive numbers
-    const parts = input
-      .split(/[^0-9]+/g)
-      .map((p) => parseInt(p, 10))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    return parts;
+  // Helpers for pattern builder
+  const addPhase = () => {
+    setPhases((prev) => [...prev, { duration: "5", label: "", isTTS: true, ttsText: "", soundId: soundOptions[0] }]);
   };
-
-  // Build cues from pattern until maxTime
-  const buildPatternCues = (): Cue[] => {
-    const steps = parsePattern(patternInput);
-    if (steps.length === 0) return [];
-    const cues: Cue[] = [];
-    const startAt = Math.max(
-      0,
-      Math.min(maxTime, Math.round(editedCue.startTime || 0))
-    );
-    let t = startAt;
-    let idx = 0;
-    while (t < maxTime) {
-      const dur = steps[idx % steps.length];
-      // Clamp duration to not exceed maxTime
-      const effectiveDur = Math.max(1, Math.min(dur, maxTime - t));
-      cues.push({
-        id: Math.random().toString(36).substring(2, 10),
-        type: "segment",
-        startTime: t,
-        duration: effectiveDur,
-        color: TYPE_COLORS.pattern, // pattern-generated segments are green
-        sound: editedCue.sound,
-      } as Cue);
-      t += effectiveDur;
-      idx++;
-      if (effectiveDur <= 0) break; // safety
-    }
-    return cues;
+  const removePhase = (i: number) => {
+    setPhases((prev) => prev.filter((_, idx) => idx !== i));
+  };
+  const updatePhase = (i: number, patch: Partial<{ duration: string; label: string; isTTS: boolean; ttsText: string; soundId: string }>) => {
+    setPhases((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
+  };
+  const repeatUntilTotal = () => {
+    const h = toInt(repeatUntilH);
+    const m = toInt(repeatUntilM);
+    const s = toInt(repeatUntilS);
+    return clampSec(h * 3600 + m * 60 + s);
   };
 
   // Handle save
@@ -244,25 +266,42 @@ const CueEditor = ({
       console.log("Cannot save: editedCue is null");
       return;
     }
-    // If in pattern mode, generate many cues
+    // If in pattern mode, save a single cue with phases and optional repeat
     if (isPattern) {
-      const generated = buildPatternCues();
-      if (generated.length === 0) return;
-      if (typeof onSaveMany === "function") {
-        onSaveMany(generated);
-      } else {
-        // Fallback: save just the first one if parent doesn't support many
-        onSave(generated[0]);
-      }
+      const builtPhases = phases
+        .map((p) => ({
+          duration: Math.max(1, toInt(p.duration)),
+          label: (p.label || undefined) as any,
+          sound: p.isTTS
+            ? ({ type: "tts", text: p.ttsText || "" } as SoundCue)
+            : ({ type: "sound", soundId: p.soundId || soundOptions[0] } as SoundCue),
+        }))
+        .filter((p) => p.duration > 0);
+      if (builtPhases.length === 0) return;
+
+      const cyclesVal = repeatCycles.trim() === "" ? undefined : Math.max(0, toInt(repeatCycles));
+      const untilVal = repeatUntilTotal();
+      const useUntil = (repeatUntilH !== "0" || repeatUntilM !== "0" || repeatUntilS !== "0") && untilVal > 0;
+      const repeat = cyclesVal != null && !useUntil ? { cycles: cyclesVal } : useUntil ? { untilTime: untilVal } : undefined;
+
+      const startAt = clampSec(Math.round(editedCue.startTime || 0));
+      const cueToSave: Cue = {
+        id: editedCue.id,
+        startTime: startAt,
+        color: TYPE_COLORS.segment,
+        phases: builtPhases as any,
+        repeat: repeat as any,
+        // Remove parent duration for patterns
+      } as any;
+      onSave(cueToSave);
       return;
     }
     // Default single-cue save
     console.log("Calling onSave with editedCue");
-    // Enforce color by type on save
-    const enforced: Cue =
-      editedCue.type === "trigger"
-        ? { ...(editedCue as any), color: TYPE_COLORS.trigger }
-        : { ...(editedCue as any), color: TYPE_COLORS.segment };
+    // Enforce color by inferred type (duration presence) on save
+    const enforced: Cue = (editedCue.duration && editedCue.duration > 0)
+      ? { ...(editedCue as any), color: TYPE_COLORS.segment }
+      : { ...(editedCue as any), color: TYPE_COLORS.trigger };
     onSave(enforced);
   };
 
@@ -293,14 +332,14 @@ const CueEditor = ({
             <TouchableOpacity
               style={[
                 styles.typeButton,
-                editedCue.type === "trigger" && styles.selectedTypeButton,
+                !isSegment && !isPattern && styles.selectedTypeButton,
               ]}
               onPress={() => handleTypeToggle("trigger")}
             >
               <Text
                 style={[
                   styles.typeButtonText,
-                  editedCue.type === "trigger" && styles.selectedTypeButtonText,
+                  !isSegment && !isPattern && styles.selectedTypeButtonText,
                 ]}
               >
                 Trigger
@@ -309,14 +348,14 @@ const CueEditor = ({
             <TouchableOpacity
               style={[
                 styles.typeButton,
-                editedCue.type === "segment" && styles.selectedTypeButton,
+                isSegment && !isPattern && styles.selectedTypeButton,
               ]}
               onPress={() => handleTypeToggle("segment")}
             >
               <Text
                 style={[
                   styles.typeButtonText,
-                  editedCue.type === "segment" && styles.selectedTypeButtonText,
+                  isSegment && !isPattern && styles.selectedTypeButtonText,
                 ]}
               >
                 Segment
@@ -395,7 +434,7 @@ const CueEditor = ({
           </View>
 
 
-          {editedCue.type === "segment" && !isPattern && (
+          {isSegment && !isPattern && (
             <>
               <Text style={styles.inputLabel}>Duration:</Text>
               <View style={styles.segmentedTimeRow}>
@@ -454,23 +493,130 @@ const CueEditor = ({
 
           {isPattern && (
             <View style={{ marginTop: 6 }}>
-              <Text style={styles.inputLabel}>
-                Pattern (seconds, e.g. 5-5-5-5 or 5-7-3):
-              </Text>
-              <TextInput
-                style={[
-                  styles.timeInput,
-                  { width: undefined, textAlign: "left" },
-                ]}
-                value={patternInput}
-                onChangeText={setPatternInput}
-                placeholder="5-5-5-5"
-                placeholderTextColor="#999"
-              />
-              <Text style={{ color: "#bbb", marginTop: 6 }}>
-                Repeats until {maxTime}s. Generates colored segments with this
-                pattern.
-              </Text>
+              <Text style={styles.inputLabel}>Phases:</Text>
+              {phases.map((ph, i) => (
+                <View key={i} style={{ marginBottom: 10, borderWidth: 1, borderColor: "#444", borderRadius: 6, padding: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <Text style={{ color: "#fff" }}>Phase {i + 1}</Text>
+                    <TouchableOpacity onPress={() => removePhase(i)}>
+                      <Text style={{ color: "#FF5252" }}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                    <Text style={styles.inputLabel}>Label</Text>
+                    <TextInput
+                      style={[styles.timeInput, { width: undefined, flex: 1, textAlign: "left" }]}
+                      placeholder="optional"
+                      placeholderTextColor="#999"
+                      value={ph.label}
+                      onChangeText={(v) => updatePhase(i, { label: v })}
+                    />
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                    <Text style={styles.inputLabel}>Duration</Text>
+                    <TextInput
+                      style={[styles.timeInput, { width: 100 }]}
+                      keyboardType="number-pad"
+                      value={ph.duration}
+                      onChangeText={(v) => updatePhase(i, { duration: v })}
+                      placeholder="secs"
+                      placeholderTextColor="#999"
+                    />
+                    <Text style={styles.timeSuffix}>s</Text>
+                  </View>
+                  <View style={[styles.soundTypeToggle, { marginTop: 4 }]}>
+                    <Text style={styles.inputLabel}>Phase TTS</Text>
+                    <Switch
+                      value={ph.isTTS}
+                      onValueChange={(val) => updatePhase(i, { isTTS: val })}
+                      trackColor={{ false: "#767577", true: "#81b0ff" }}
+                      thumbColor={ph.isTTS ? "#f5dd4b" : "#f4f3f4"}
+                    />
+                  </View>
+                  {ph.isTTS ? (
+                    <TextInput
+                      style={[styles.ttsInput, { marginTop: 6 }]}
+                      value={ph.ttsText}
+                      onChangeText={(v) => updatePhase(i, { ttsText: v })}
+                      placeholder="Enter text to speak for this phase"
+                      placeholderTextColor="#999"
+                      multiline
+                    />
+                  ) : (
+                    <View style={[styles.soundOptions, { marginTop: 6 }]}>
+                      {soundOptions.map((sound) => (
+                        <TouchableOpacity
+                          key={sound}
+                          style={[
+                            styles.soundOption,
+                            ph.soundId === sound && styles.selectedSoundOption,
+                          ]}
+                          onPress={() => updatePhase(i, { soundId: sound })}
+                        >
+                          <Text
+                            style={[
+                              styles.soundOptionText,
+                              ph.soundId === sound && styles.selectedSoundOptionText,
+                            ]}
+                          >
+                            {sound}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+              <TouchableOpacity onPress={addPhase} style={[styles.typeButton, { marginTop: 6 }]}>
+                <Text style={styles.typeButtonText}>+ Add Phase</Text>
+              </TouchableOpacity>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.sectionTitle}>Repeat</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Text style={styles.inputLabel}>Cycles</Text>
+                  <TextInput
+                    style={[styles.timeInput, { width: 100 }]}
+                    keyboardType="number-pad"
+                    value={repeatCycles}
+                    onChangeText={setRepeatCycles}
+                    placeholder="e.g. 4"
+                    placeholderTextColor="#999"
+                  />
+                  <Text style={{ color: "#bbb" }}>or</Text>
+                  <Text style={styles.inputLabel}>Until</Text>
+                  <TextInput
+                    style={[styles.timeInput, { width: 70 }]}
+                    keyboardType="number-pad"
+                    value={repeatUntilH}
+                    onChangeText={setRepeatUntilH}
+                    placeholder="hh"
+                    placeholderTextColor="#999"
+                  />
+                  <Text style={styles.timeSuffix}>h</Text>
+                  <TextInput
+                    style={[styles.timeInput, { width: 70 }]}
+                    keyboardType="number-pad"
+                    value={repeatUntilM}
+                    onChangeText={setRepeatUntilM}
+                    placeholder="mm"
+                    placeholderTextColor="#999"
+                  />
+                  <Text style={styles.timeSuffix}>m</Text>
+                  <TextInput
+                    style={[styles.timeInput, { width: 70 }]}
+                    keyboardType="number-pad"
+                    value={repeatUntilS}
+                    onChangeText={setRepeatUntilS}
+                    placeholder="ss"
+                    placeholderTextColor="#999"
+                  />
+                  <Text style={styles.timeSuffix}>s</Text>
+                </View>
+                <Text style={styles.hintText}>
+                  Set either cycles or until time. Leaving both empty runs once.
+                </Text>
+              </View>
             </View>
           )}
         </View>

@@ -3,7 +3,7 @@ import { Cue } from "@/types";
 /**
  * Normalize a cue with respect to total session duration.
  * - startTime clamped to [0, total]
- * - segment duration rounded and min 1 second
+ * - if duration present: rounded and min 1 second
  */
 export function normalizeCue(cue: Cue, total: number): Cue {
   const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -11,9 +11,11 @@ export function normalizeCue(cue: Cue, total: number): Cue {
 
   const normalizedStart = clamp(round(cue.startTime || 0), 0, total);
 
-  if (cue.type === "segment") {
-    const duration = Math.max(1, round((cue as any).duration || 0));
-    return { ...(cue as any), startTime: normalizedStart, duration } as Cue;
+  if (cue.duration && cue.duration > 0) {
+    const duration = Math.max(1, round(cue.duration));
+    return { ...cue, startTime: normalizedStart, duration };
   }
-  return { ...cue, startTime: normalizedStart };
+  // Instant trigger (no duration)
+  const { duration, ...rest } = cue as any;
+  return { ...rest, startTime: normalizedStart } as Cue;
 }
