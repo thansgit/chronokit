@@ -6,5 +6,6 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  setupFilesAfterEnv: ['<rootDir>/__tests__/jest.setup.ts'],
   testMatch: ['**/__tests__/**/*.test.(ts|tsx)'],
 };

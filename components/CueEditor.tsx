@@ -1,3 +1,6 @@
+import { formatClock } from "@/helpers/format";
+import { Cue, SoundCue } from "@/types";
+import { TYPE_COLORS, soundOptions, DEFAULT_SEGMENT_DURATION } from "@/helpers/constants";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useState } from "react";
 import {
@@ -9,34 +12,23 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Cue, SoundCue } from "@/types";
 
 interface CueEditorProps {
   cue: Cue | null;
   onSave: (cue: Cue) => void;
+  // Optional: when saving a pattern we may return multiple cues
+  onSaveMany?: (cues: Cue[]) => void;
   onDelete?: (cueId: string) => void;
   onClose: () => void;
   maxTime: number; // Maximum time in seconds (session duration)
 }
 
-// Predefined colors for the color picker
-const colorOptions = [
-  "#FF5252", // Red
-  "#FF9800", // Orange
-  "#FFEB3B", // Yellow
-  "#4CAF50", // Green
-  "#2196F3", // Blue
-  "#673AB7", // Purple
-  "#E91E63", // Pink
-  "#795548", // Brown
-];
-
-// Predefined sound options
-const soundOptions = ["bell", "gong", "beep", "complete"];
+// Constants are now imported from helpers/constants
 
 const CueEditor = ({
   cue,
   onSave,
+  onSaveMany,
   onDelete,
   onClose,
   maxTime,
@@ -46,10 +38,21 @@ const CueEditor = ({
     id: Math.random().toString(36).substring(2, 10),
     type: "trigger",
     startTime: 0,
-    color: colorOptions[0],
+    color: TYPE_COLORS.trigger,
     sound: { type: "sound", soundId: soundOptions[0] },
   });
   const [isTTS, setIsTTS] = useState(false);
+  // Local state for pattern builder
+  const [isPattern, setIsPattern] = useState(false);
+  const [patternInput, setPatternInput] = useState<string>("5-5-5-5");
+
+  // Local segmented inputs for Start Time and Duration
+  const [startH, setStartH] = useState<string>("0");
+  const [startM, setStartM] = useState<string>("0");
+  const [startS, setStartS] = useState<string>("0");
+  const [durH, setDurH] = useState<string>("0");
+  const [durM, setDurM] = useState<string>("0");
+  const [durS, setDurS] = useState<string>("0");
 
   // Initialize state when cue changes
   useEffect(() => {
@@ -57,8 +60,21 @@ const CueEditor = ({
 
     if (cue) {
       console.log("Initializing with existing cue data");
-      setEditedCue({ ...cue });
+      // Enforce color by type regardless of incoming color
+      const enforcedColor = cue.type === "trigger" ? TYPE_COLORS.trigger : TYPE_COLORS.segment;
+      setEditedCue({ ...cue, color: enforcedColor });
       setIsTTS(cue.sound?.type === "tts");
+      // When editing an existing cue, default to non-pattern mode
+      setIsPattern(false);
+      // Initialize segmented fields from cue
+      const s = Math.max(0, Math.floor(cue.startTime || 0));
+      setStartH(String(Math.floor(s / 3600)));
+      setStartM(String(Math.floor((s % 3600) / 60)));
+      setStartS(String(s % 60));
+      const d = Math.max(0, Math.floor((cue as any).duration || 0));
+      setDurH(String(Math.floor(d / 3600)));
+      setDurM(String(Math.floor((d % 3600) / 60)));
+      setDurS(String(d % 60));
     } else {
       console.log("No cue provided, using default values");
       // Default values for a new cue
@@ -66,10 +82,18 @@ const CueEditor = ({
         id: Math.random().toString(36).substring(2, 10),
         type: "trigger",
         startTime: 0,
-        color: colorOptions[0],
+        color: TYPE_COLORS.trigger,
         sound: { type: "sound", soundId: soundOptions[0] },
       });
       setIsTTS(false);
+      setIsPattern(false);
+      // Defaults for segmented fields
+      setStartH("0");
+      setStartM("0");
+      setStartS("0");
+      setDurH("0");
+      setDurM("0");
+      setDurS("0");
     }
   }, [cue]);
 
@@ -80,30 +104,32 @@ const CueEditor = ({
 
   console.log("Rendering CueEditor with editedCue:", editedCue);
 
-  // Handle time change
-  const handleTimeChange = (value: string, field: "startTime" | "duration") => {
-    const numValue = parseInt(value, 10) || 0;
+  // Helpers to parse and clamp
+  const toInt = (v: string) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+  const clampSec = (sec: number) => Math.min(Math.max(0, sec), maxTime);
 
-    // Ensure time is within valid range
-    const validValue = Math.min(Math.max(0, numValue), maxTime);
-
-    setEditedCue((prev) => {
-      return {
-        ...prev,
-        [field]: validValue,
-      };
-    });
+  // Recompute startTime from H/M/S
+  const recomputeStart = (hStr: string, mStr: string, sStr: string) => {
+    const h = toInt(hStr);
+    const m = toInt(mStr);
+    const s = toInt(sStr);
+    const total = clampSec(h * 3600 + m * 60 + s);
+    setEditedCue((prev) => ({ ...prev, startTime: total }));
   };
 
-  // Handle color selection
-  const handleColorSelect = (color: string) => {
-    setEditedCue((prev) => {
-      return {
-        ...prev,
-        color,
-      };
-    });
+  // Recompute duration from H/M/S
+  const recomputeDuration = (hStr: string, mStr: string, sStr: string) => {
+    const h = toInt(hStr);
+    const m = toInt(mStr);
+    const s = toInt(sStr);
+    const total = clampSec(h * 3600 + m * 60 + s);
+    setEditedCue((prev) => ({ ...(prev as any), duration: total } as any));
   };
+
+  // Colors are fixed by type; no manual selection
 
   // Handle sound type toggle
   const handleSoundTypeToggle = (value: boolean) => {
@@ -142,33 +168,102 @@ const CueEditor = ({
     });
   };
 
-  // Handle type toggle (trigger/segment)
-  const handleTypeToggle = (type: "trigger" | "segment") => {
+  // Handle type toggle (trigger/segment/pattern)
+  const handleTypeToggle = (type: "trigger" | "segment" | "pattern") => {
     setEditedCue((prev) => {
       if (type === "trigger") {
         // Convert to trigger - remove duration if it exists
         const { duration, ...triggerCue } = prev as any;
-        return { ...triggerCue, type };
-      } else {
+        return { ...triggerCue, type, color: TYPE_COLORS.trigger };
+      } else if (type === "segment") {
         // Convert to segment - add duration if it doesn't exist
         return {
           ...prev,
           type,
-          duration: (prev as any).duration || 5, // Default duration of 5 seconds
+          duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION, // Default duration
+          color: TYPE_COLORS.segment,
         };
+      } else {
+        // Pattern is a virtual builder mode; keep base fields, mark local flag
+        setIsPattern(true);
+        return {
+          ...(prev as any),
+          type: "segment",
+          duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION,
+          color: TYPE_COLORS.segment,
+        } as any;
       }
     });
+    setIsPattern(type === "pattern");
+  };
+
+  // Expand pattern string to numbers
+  const parsePattern = (input: string): number[] => {
+    // Accept delimiters like '-', ',', ' ' and filter non-positive numbers
+    const parts = input
+      .split(/[^0-9]+/g)
+      .map((p) => parseInt(p, 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return parts;
+  };
+
+  // Build cues from pattern until maxTime
+  const buildPatternCues = (): Cue[] => {
+    const steps = parsePattern(patternInput);
+    if (steps.length === 0) return [];
+    const cues: Cue[] = [];
+    const startAt = Math.max(
+      0,
+      Math.min(maxTime, Math.round(editedCue.startTime || 0))
+    );
+    let t = startAt;
+    let idx = 0;
+    while (t < maxTime) {
+      const dur = steps[idx % steps.length];
+      // Clamp duration to not exceed maxTime
+      const effectiveDur = Math.max(1, Math.min(dur, maxTime - t));
+      cues.push({
+        id: Math.random().toString(36).substring(2, 10),
+        type: "segment",
+        startTime: t,
+        duration: effectiveDur,
+        color: TYPE_COLORS.pattern, // pattern-generated segments are green
+        sound: editedCue.sound,
+      } as Cue);
+      t += effectiveDur;
+      idx++;
+      if (effectiveDur <= 0) break; // safety
+    }
+    return cues;
   };
 
   // Handle save
   const handleSave = () => {
     console.log("Save button pressed, editedCue:", editedCue);
-    if (editedCue) {
-      console.log("Calling onSave with editedCue");
-      onSave(editedCue);
-    } else {
+    if (!editedCue) {
       console.log("Cannot save: editedCue is null");
+      return;
     }
+    // If in pattern mode, generate many cues
+    if (isPattern) {
+      const generated = buildPatternCues();
+      if (generated.length === 0) return;
+      if (typeof onSaveMany === "function") {
+        onSaveMany(generated);
+      } else {
+        // Fallback: save just the first one if parent doesn't support many
+        onSave(generated[0]);
+      }
+      return;
+    }
+    // Default single-cue save
+    console.log("Calling onSave with editedCue");
+    // Enforce color by type on save
+    const enforced: Cue =
+      editedCue.type === "trigger"
+        ? { ...(editedCue as any), color: TYPE_COLORS.trigger }
+        : { ...(editedCue as any), color: TYPE_COLORS.segment };
+    onSave(enforced);
   };
 
   // Handle delete
@@ -177,6 +272,10 @@ const CueEditor = ({
       onDelete(editedCue.id);
     }
   };
+
+  // Whether to show hours/minutes based on maxTime context
+  const showHours = maxTime >= 3600;
+  const showMinutes = maxTime >= 60;
 
   return (
     <View style={styles.container}>
@@ -188,9 +287,8 @@ const CueEditor = ({
       </View>
 
       <ScrollView style={styles.mainContent}>
-        {/* Cue Type Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cue Type</Text>
+          <Text style={styles.sectionTitle}>Type</Text>
           <View style={styles.typeSelector}>
             <TouchableOpacity
               style={[
@@ -224,52 +322,160 @@ const CueEditor = ({
                 Segment
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                isPattern && styles.selectedTypeButton,
+              ]}
+              onPress={() => handleTypeToggle("pattern")}
+            >
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  isPattern && styles.selectedTypeButtonText,
+                ]}
+              >
+                Pattern
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Time Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Time</Text>
-          <View style={styles.timeInputContainer}>
-            <Text style={styles.inputLabel}>Start Time (seconds):</Text>
-            <TextInput
-              style={styles.timeInput}
-              value={editedCue.startTime.toString()}
-              onChangeText={(value) => handleTimeChange(value, "startTime")}
-              keyboardType="number-pad"
-            />
-          </View>
-
-          {editedCue.type === "segment" && (
-            <View style={styles.timeInputContainer}>
-              <Text style={styles.inputLabel}>Duration (seconds):</Text>
+          <Text style={styles.inputLabel}>Start Time:</Text>
+          <View style={styles.segmentedTimeRow}>
+            {showHours && (
+              <View style={styles.segmentedField}>
+                <TextInput
+                  style={styles.timeInput}
+                  value={startH}
+                  onChangeText={(v) => {
+                    setStartH(v);
+                    recomputeStart(v, startM, startS);
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="00"
+                  placeholderTextColor="#999"
+                />
+                <Text style={styles.timeSuffix}>h</Text>
+              </View>
+            )}
+            {showMinutes && (
+              <View style={styles.segmentedField}>
+                <TextInput
+                  style={styles.timeInput}
+                  value={startM}
+                  onChangeText={(v) => {
+                    setStartM(v);
+                    recomputeStart(startH, v, startS);
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="00"
+                  placeholderTextColor="#999"
+                />
+                <Text style={styles.timeSuffix}>m</Text>
+              </View>
+            )}
+            <View style={styles.segmentedField}>
               <TextInput
                 style={styles.timeInput}
-                value={(editedCue.duration || 0).toString()}
-                onChangeText={(value) => handleTimeChange(value, "duration")}
+                value={startS}
+                onChangeText={(v) => {
+                  setStartS(v);
+                  recomputeStart(startH, startM, v);
+                }}
                 keyboardType="number-pad"
+                placeholder="00"
+                placeholderTextColor="#999"
               />
+              <Text style={styles.timeSuffix}>s</Text>
+            </View>
+          </View>
+
+
+          {editedCue.type === "segment" && !isPattern && (
+            <>
+              <Text style={styles.inputLabel}>Duration:</Text>
+              <View style={styles.segmentedTimeRow}>
+                {showHours && (
+                  <View style={styles.segmentedField}>
+                    <TextInput
+                      style={styles.timeInput}
+                      value={durH}
+                      onChangeText={(v) => {
+                        setDurH(v);
+                        recomputeDuration(v, durM, durS);
+                      }}
+                      keyboardType="number-pad"
+                      placeholder="00"
+                      placeholderTextColor="#999"
+                    />
+                    <Text style={styles.timeSuffix}>h</Text>
+                  </View>
+                )}
+                {showMinutes && (
+                  <View style={styles.segmentedField}>
+                    <TextInput
+                      style={styles.timeInput}
+                      value={durM}
+                      onChangeText={(v) => {
+                        setDurM(v);
+                        recomputeDuration(durH, v, durS);
+                      }}
+                      keyboardType="number-pad"
+                      placeholder="00"
+                      placeholderTextColor="#999"
+                    />
+                    <Text style={styles.timeSuffix}>m</Text>
+                  </View>
+                )}
+                <View style={styles.segmentedField}>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={durS}
+                    onChangeText={(v) => {
+                      setDurS(v);
+                      recomputeDuration(durH, durM, v);
+                    }}
+                    keyboardType="number-pad"
+                    placeholder="00"
+                    placeholderTextColor="#999"
+                  />
+                  <Text style={styles.timeSuffix}>s</Text>
+                </View>
+              </View>
+              <Text style={styles.hintText}>
+                = {formatClock((editedCue as any).duration || 0)}
+              </Text>
+            </>
+          )}
+
+          {isPattern && (
+            <View style={{ marginTop: 6 }}>
+              <Text style={styles.inputLabel}>
+                Pattern (seconds, e.g. 5-5-5-5 or 5-7-3):
+              </Text>
+              <TextInput
+                style={[
+                  styles.timeInput,
+                  { width: undefined, textAlign: "left" },
+                ]}
+                value={patternInput}
+                onChangeText={setPatternInput}
+                placeholder="5-5-5-5"
+                placeholderTextColor="#999"
+              />
+              <Text style={{ color: "#bbb", marginTop: 6 }}>
+                Repeats until {maxTime}s. Generates colored segments with this
+                pattern.
+              </Text>
             </View>
           )}
         </View>
 
-        {/* Color Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Color</Text>
-          <View style={styles.colorOptions}>
-            {colorOptions.map((color) => (
-              <TouchableOpacity
-                key={color}
-                style={[
-                  styles.colorOption,
-                  { backgroundColor: color },
-                  editedCue.color === color && styles.selectedColorOption,
-                ]}
-                onPress={() => handleColorSelect(color)}
-              />
-            ))}
-          </View>
-        </View>
+        {/* Color selection removed: colors are fixed per cue type */}
 
         {/* Sound Settings */}
         <View style={styles.section}>
@@ -400,6 +606,21 @@ const styles = StyleSheet.create({
     color: "#25292e",
     fontWeight: "bold",
   },
+  segmentedTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  segmentedField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  timeSuffix: {
+    color: "#bbb",
+    marginLeft: 4,
+  },
   timeInputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -417,21 +638,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     width: 80,
     textAlign: "center",
-  },
-  colorOptions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  colorOption: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    margin: 5,
-  },
-  selectedColorOption: {
-    borderWidth: 3,
-    borderColor: "white",
   },
   soundTypeToggle: {
     flexDirection: "row",
@@ -472,6 +678,10 @@ const styles = StyleSheet.create({
   selectedSoundOptionText: {
     color: "#25292e",
     fontWeight: "bold",
+  },
+  hintText: {
+    color: "#bbb",
+    marginTop: 4,
   },
   footer: {
     flexDirection: "row",

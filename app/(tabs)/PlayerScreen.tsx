@@ -13,6 +13,7 @@ import { useTimerStore } from "@/stores/useTimerStore";
 import { normalizeCue } from "@/helpers/cue";
 import { generateId } from "@/helpers/id";
 import { Cue } from "@/types";
+import { TYPE_COLORS, TIMER_GRADIENT } from "@/helpers/constants";
 
 export default function PlayerScreen() {
   // Get timer state from hook
@@ -168,7 +169,7 @@ export default function PlayerScreen() {
             strokeWidth={15}
             dashCount={60}
             dashWidth={3}
-            gradientColors={["#FFA500", "#FF4433"]} // Purple to blue gradient
+            gradientColors={[...TIMER_GRADIENT]}
             textColor="white"
             cues={session.cues}
             onReset={resetTimer}
@@ -249,7 +250,7 @@ export default function PlayerScreen() {
                     id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
                     type: "trigger",
                     startTime: Math.round(draftStartTime),
-                    color: "#FF9800",
+                    color: TYPE_COLORS.trigger, // Fixed blue for triggers
                     sound: { type: "sound", soundId: "bell" },
                   };
                   setEditingCue(newCue);
@@ -282,6 +283,14 @@ export default function PlayerScreen() {
                   if (!session) return;
                   const normalized = normalizeCue(cue as any, session.totalDuration);
                   const updated = { ...session, cues: [...session.cues, normalized] };
+                  updateSession(updated);
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                }}
+                onSaveMany={(cues) => {
+                  if (!session) return;
+                  const normalized = cues.map((c) => normalizeCue(c as any, session.totalDuration));
+                  const updated = { ...session, cues: [...session.cues, ...normalized] };
                   updateSession(updated);
                   setCueEditorVisible(false);
                   setEditingCue(null);

@@ -12,6 +12,7 @@ import Svg, { Defs, G, Line, LinearGradient, Stop } from "react-native-svg";
 import { ResetButton } from "./ResetButton";
 import { TimeDisplay } from "./TimeDisplay";
 import { formatClock } from "@/helpers/format";
+import { ACTIVE_DASH_COLOR, TIMER_GRADIENT } from "@/helpers/constants";
 
 interface CircularProgressTimerProps {
   totalDuration: number; // Total duration in seconds
@@ -58,7 +59,7 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
   backgroundColor = "rgba(255,255,255,0.2)",
   dashCount = 10,
   dashWidth = 3,
-  gradientColors = ["#FFA500", "#FF4433"], // Purple to blue gradient
+  gradientColors = TIMER_GRADIENT,
   cues = [],
   onReset,
   allowScrub = false,
@@ -93,7 +94,7 @@ const CircularProgressTimer = memo(function CircularProgressTimer({
   // We'll create individual dash segments and hide them as the timer progresses
   const segmentAngle = 360 / dashCount;
   const segmentLength = circleCircumference / dashCount;
-  const activeDashColor = "#FFFFFF"; // highlight color for current drag position
+  const activeDashColor = ACTIVE_DASH_COLOR; // highlight color for current drag position
 
   // Calculate how many segments should be colored vs background
   const coloredSegments = Math.floor(dashCount * (1 - progress));
