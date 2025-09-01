@@ -1,6 +1,9 @@
 import { formatClock } from "@/helpers/format";
 import { Cue, SoundCue } from "@/types";
 import { TYPE_COLORS, soundOptions, DEFAULT_SEGMENT_DURATION } from "@/helpers/constants";
+import SegmentedTimeInput from "./SegmentedTimeInput";
+import SoundSettings from "./SoundSettings";
+import PatternBuilder from "./PatternBuilder";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useState } from "react";
 import {
@@ -215,31 +218,31 @@ const CueEditor = ({
     });
   };
 
-  // Handle type toggle (instant/segment/pattern) using unified Cue
-  const handleTypeToggle = (type: "trigger" | "segment" | "pattern") => {
-    setEditedCue((prev) => {
-      if (type === "trigger") {
-        // Convert to trigger - remove duration if it exists
-        const { duration, ...triggerCue } = prev as any;
-        return { ...triggerCue, color: TYPE_COLORS.trigger } as Cue;
-      } else if (type === "segment") {
-        // Convert to segment - add duration if it doesn't exist
-        return {
-          ...prev,
-          duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION, // Default duration
-          color: TYPE_COLORS.segment,
-        };
-      } else {
-        // Pattern is a virtual builder mode; keep base fields, mark local flag
-        setIsPattern(true);
-        return {
-          ...(prev as any),
-          duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION,
-          color: TYPE_COLORS.segment,
-        } as any;
-      }
-    });
-    setIsPattern(type === "pattern");
+  // Toggles for segment duration and pattern mode
+  const toggleSegment = (value: boolean) => {
+    if (value) {
+      setEditedCue((prev) => ({
+        ...prev,
+        duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION,
+        color: TYPE_COLORS.segment,
+      } as any));
+      setIsPattern(false);
+    } else {
+      setEditedCue((prev) => {
+        const { duration, ...rest } = prev as any;
+        return { ...rest, color: TYPE_COLORS.trigger } as Cue;
+      });
+    }
+  };
+  const togglePattern = (value: boolean) => {
+    setIsPattern(value);
+    if (value) {
+      // Pattern uses phases, remove parent duration and force segment color
+      setEditedCue((prev) => {
+        const { duration, ...rest } = prev as any;
+        return { ...rest, color: TYPE_COLORS.segment } as Cue;
+      });
+    }
   };
 
   // Helpers for pattern builder
@@ -327,354 +330,101 @@ const CueEditor = ({
 
       <ScrollView style={styles.mainContent}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Type</Text>
-          <View style={styles.typeSelector}>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                !isSegment && !isPattern && styles.selectedTypeButton,
-              ]}
-              onPress={() => handleTypeToggle("trigger")}
-            >
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  !isSegment && !isPattern && styles.selectedTypeButtonText,
-                ]}
-              >
-                Trigger
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                isSegment && !isPattern && styles.selectedTypeButton,
-              ]}
-              onPress={() => handleTypeToggle("segment")}
-            >
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  isSegment && !isPattern && styles.selectedTypeButtonText,
-                ]}
-              >
-                Segment
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                isPattern && styles.selectedTypeButton,
-              ]}
-              onPress={() => handleTypeToggle("pattern")}
-            >
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  isPattern && styles.selectedTypeButtonText,
-                ]}
-              >
-                Pattern
-              </Text>
-            </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Mode</Text>
+          <View style={{ gap: 10 }}>
+            <View style={styles.soundTypeToggle}>
+              <Text style={styles.inputLabel}>Add duration (segment)</Text>
+              <Switch
+                value={isSegment && !isPattern}
+                onValueChange={toggleSegment}
+                trackColor={{ false: "#767577", true: "#81b0ff" }}
+                thumbColor={isSegment && !isPattern ? "#f5dd4b" : "#f4f3f4"}
+              />
+            </View>
+            <View style={styles.soundTypeToggle}>
+              <Text style={styles.inputLabel}>Pattern (phases)</Text>
+              <Switch
+                value={isPattern}
+                onValueChange={togglePattern}
+                trackColor={{ false: "#767577", true: "#81b0ff" }}
+                thumbColor={isPattern ? "#f5dd4b" : "#f4f3f4"}
+              />
+            </View>
           </View>
         </View>
 
         {/* Time Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Time</Text>
-          <Text style={styles.inputLabel}>Start Time:</Text>
-          <View style={styles.segmentedTimeRow}>
-            {showHours && (
-              <View style={styles.segmentedField}>
-                <TextInput
-                  style={styles.timeInput}
-                  value={startH}
-                  onChangeText={(v) => {
-                    setStartH(v);
-                    recomputeStart(v, startM, startS);
-                  }}
-                  keyboardType="number-pad"
-                  placeholder="00"
-                  placeholderTextColor="#999"
-                />
-                <Text style={styles.timeSuffix}>h</Text>
-              </View>
-            )}
-            {showMinutes && (
-              <View style={styles.segmentedField}>
-                <TextInput
-                  style={styles.timeInput}
-                  value={startM}
-                  onChangeText={(v) => {
-                    setStartM(v);
-                    recomputeStart(startH, v, startS);
-                  }}
-                  keyboardType="number-pad"
-                  placeholder="00"
-                  placeholderTextColor="#999"
-                />
-                <Text style={styles.timeSuffix}>m</Text>
-              </View>
-            )}
-            <View style={styles.segmentedField}>
-              <TextInput
-                style={styles.timeInput}
-                value={startS}
-                onChangeText={(v) => {
-                  setStartS(v);
-                  recomputeStart(startH, startM, v);
-                }}
-                keyboardType="number-pad"
-                placeholder="00"
-                placeholderTextColor="#999"
-              />
-              <Text style={styles.timeSuffix}>s</Text>
-            </View>
-          </View>
+          <SegmentedTimeInput
+            label="Start Time:"
+            hours={startH}
+            minutes={startM}
+            seconds={startS}
+            showHours={showHours}
+            showMinutes={showMinutes}
+            onChange={(h, m, s) => {
+              setStartH(h);
+              setStartM(m);
+              setStartS(s);
+              recomputeStart(h, m, s);
+            }}
+          />
 
 
           {isSegment && !isPattern && (
             <>
-              <Text style={styles.inputLabel}>Duration:</Text>
-              <View style={styles.segmentedTimeRow}>
-                {showHours && (
-                  <View style={styles.segmentedField}>
-                    <TextInput
-                      style={styles.timeInput}
-                      value={durH}
-                      onChangeText={(v) => {
-                        setDurH(v);
-                        recomputeDuration(v, durM, durS);
-                      }}
-                      keyboardType="number-pad"
-                      placeholder="00"
-                      placeholderTextColor="#999"
-                    />
-                    <Text style={styles.timeSuffix}>h</Text>
-                  </View>
-                )}
-                {showMinutes && (
-                  <View style={styles.segmentedField}>
-                    <TextInput
-                      style={styles.timeInput}
-                      value={durM}
-                      onChangeText={(v) => {
-                        setDurM(v);
-                        recomputeDuration(durH, v, durS);
-                      }}
-                      keyboardType="number-pad"
-                      placeholder="00"
-                      placeholderTextColor="#999"
-                    />
-                    <Text style={styles.timeSuffix}>m</Text>
-                  </View>
-                )}
-                <View style={styles.segmentedField}>
-                  <TextInput
-                    style={styles.timeInput}
-                    value={durS}
-                    onChangeText={(v) => {
-                      setDurS(v);
-                      recomputeDuration(durH, durM, v);
-                    }}
-                    keyboardType="number-pad"
-                    placeholder="00"
-                    placeholderTextColor="#999"
-                  />
-                  <Text style={styles.timeSuffix}>s</Text>
-                </View>
-              </View>
+              <SegmentedTimeInput
+                label="Duration:"
+                hours={durH}
+                minutes={durM}
+                seconds={durS}
+                showHours={showHours}
+                showMinutes={showMinutes}
+                onChange={(h, m, s) => {
+                  setDurH(h);
+                  setDurM(m);
+                  setDurS(s);
+                  recomputeDuration(h, m, s);
+                }}
+              />
               <Text style={styles.hintText}>
                 = {formatClock((editedCue as any).duration || 0)}
               </Text>
             </>
           )}
-
-          {isPattern && (
-            <View style={{ marginTop: 6 }}>
-              <Text style={styles.inputLabel}>Phases:</Text>
-              {phases.map((ph, i) => (
-                <View key={i} style={{ marginBottom: 10, borderWidth: 1, borderColor: "#444", borderRadius: 6, padding: 8 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <Text style={{ color: "#fff" }}>Phase {i + 1}</Text>
-                    <TouchableOpacity onPress={() => removePhase(i)}>
-                      <Text style={{ color: "#FF5252" }}>Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                    <Text style={styles.inputLabel}>Label</Text>
-                    <TextInput
-                      style={[styles.timeInput, { width: undefined, flex: 1, textAlign: "left" }]}
-                      placeholder="optional"
-                      placeholderTextColor="#999"
-                      value={ph.label}
-                      onChangeText={(v) => updatePhase(i, { label: v })}
-                    />
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                    <Text style={styles.inputLabel}>Duration</Text>
-                    <TextInput
-                      style={[styles.timeInput, { width: 100 }]}
-                      keyboardType="number-pad"
-                      value={ph.duration}
-                      onChangeText={(v) => updatePhase(i, { duration: v })}
-                      placeholder="secs"
-                      placeholderTextColor="#999"
-                    />
-                    <Text style={styles.timeSuffix}>s</Text>
-                  </View>
-                  <View style={[styles.soundTypeToggle, { marginTop: 4 }]}>
-                    <Text style={styles.inputLabel}>Phase TTS</Text>
-                    <Switch
-                      value={ph.isTTS}
-                      onValueChange={(val) => updatePhase(i, { isTTS: val })}
-                      trackColor={{ false: "#767577", true: "#81b0ff" }}
-                      thumbColor={ph.isTTS ? "#f5dd4b" : "#f4f3f4"}
-                    />
-                  </View>
-                  {ph.isTTS ? (
-                    <TextInput
-                      style={[styles.ttsInput, { marginTop: 6 }]}
-                      value={ph.ttsText}
-                      onChangeText={(v) => updatePhase(i, { ttsText: v })}
-                      placeholder="Enter text to speak for this phase"
-                      placeholderTextColor="#999"
-                      multiline
-                    />
-                  ) : (
-                    <View style={[styles.soundOptions, { marginTop: 6 }]}>
-                      {soundOptions.map((sound) => (
-                        <TouchableOpacity
-                          key={sound}
-                          style={[
-                            styles.soundOption,
-                            ph.soundId === sound && styles.selectedSoundOption,
-                          ]}
-                          onPress={() => updatePhase(i, { soundId: sound })}
-                        >
-                          <Text
-                            style={[
-                              styles.soundOptionText,
-                              ph.soundId === sound && styles.selectedSoundOptionText,
-                            ]}
-                          >
-                            {sound}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              ))}
-              <TouchableOpacity onPress={addPhase} style={[styles.typeButton, { marginTop: 6 }]}>
-                <Text style={styles.typeButtonText}>+ Add Phase</Text>
-              </TouchableOpacity>
-
-              <View style={{ marginTop: 12 }}>
-                <Text style={styles.sectionTitle}>Repeat</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <Text style={styles.inputLabel}>Cycles</Text>
-                  <TextInput
-                    style={[styles.timeInput, { width: 100 }]}
-                    keyboardType="number-pad"
-                    value={repeatCycles}
-                    onChangeText={setRepeatCycles}
-                    placeholder="e.g. 4"
-                    placeholderTextColor="#999"
-                  />
-                  <Text style={{ color: "#bbb" }}>or</Text>
-                  <Text style={styles.inputLabel}>Until</Text>
-                  <TextInput
-                    style={[styles.timeInput, { width: 70 }]}
-                    keyboardType="number-pad"
-                    value={repeatUntilH}
-                    onChangeText={setRepeatUntilH}
-                    placeholder="hh"
-                    placeholderTextColor="#999"
-                  />
-                  <Text style={styles.timeSuffix}>h</Text>
-                  <TextInput
-                    style={[styles.timeInput, { width: 70 }]}
-                    keyboardType="number-pad"
-                    value={repeatUntilM}
-                    onChangeText={setRepeatUntilM}
-                    placeholder="mm"
-                    placeholderTextColor="#999"
-                  />
-                  <Text style={styles.timeSuffix}>m</Text>
-                  <TextInput
-                    style={[styles.timeInput, { width: 70 }]}
-                    keyboardType="number-pad"
-                    value={repeatUntilS}
-                    onChangeText={setRepeatUntilS}
-                    placeholder="ss"
-                    placeholderTextColor="#999"
-                  />
-                  <Text style={styles.timeSuffix}>s</Text>
-                </View>
-                <Text style={styles.hintText}>
-                  Set either cycles or until time. Leaving both empty runs once.
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
 
-        {/* Color selection removed: colors are fixed per cue type */}
+        {isPattern && (
+          <PatternBuilder
+            phases={phases}
+            onAddPhase={addPhase}
+            onRemovePhase={removePhase}
+            onUpdatePhase={updatePhase}
+            repeatCycles={repeatCycles}
+            repeatUntilH={repeatUntilH}
+            repeatUntilM={repeatUntilM}
+            repeatUntilS={repeatUntilS}
+            onChangeRepeatCycles={setRepeatCycles}
+            onChangeRepeatUntilH={setRepeatUntilH}
+            onChangeRepeatUntilM={setRepeatUntilM}
+            onChangeRepeatUntilS={setRepeatUntilS}
+          />
+        )}
 
-        {/* Sound Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sound</Text>
-
-          <View style={styles.soundTypeToggle}>
-            <Text style={styles.inputLabel}>Text-to-Speech:</Text>
-            <Switch
-              value={isTTS}
-              onValueChange={handleSoundTypeToggle}
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={isTTS ? "#f5dd4b" : "#f4f3f4"}
+        {!isPattern && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Sound</Text>
+            <SoundSettings
+              isTTS={isTTS}
+              onToggleTTS={handleSoundTypeToggle}
+              ttsText={(editedCue.sound as any)?.text || ""}
+              onChangeTTSText={handleTTSTextChange}
+              selectedSoundId={(editedCue.sound as any)?.soundId}
+              onSelectSound={handleSoundSelect}
             />
           </View>
-
-          {isTTS ? (
-            <View style={styles.ttsContainer}>
-              <Text style={styles.inputLabel}>Message:</Text>
-              <TextInput
-                style={styles.ttsInput}
-                value={(editedCue.sound as any)?.text || ""}
-                onChangeText={handleTTSTextChange}
-                placeholder="Enter text to speak"
-                placeholderTextColor="#999"
-                multiline
-              />
-            </View>
-          ) : (
-            <View style={styles.soundOptions}>
-              {soundOptions.map((sound) => (
-                <TouchableOpacity
-                  key={sound}
-                  style={[
-                    styles.soundOption,
-                    (editedCue.sound as any)?.soundId === sound &&
-                      styles.selectedSoundOption,
-                  ]}
-                  onPress={() => handleSoundSelect(sound)}
-                >
-                  <Text
-                    style={[
-                      styles.soundOptionText,
-                      (editedCue.sound as any)?.soundId === sound &&
-                        styles.selectedSoundOptionText,
-                    ]}
-                  >
-                    {sound}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
