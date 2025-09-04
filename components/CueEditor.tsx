@@ -1,9 +1,10 @@
+import {
+  DEFAULT_SEGMENT_DURATION,
+  TYPE_COLORS,
+  soundOptions,
+} from "@/helpers/constants";
 import { formatClock } from "@/helpers/format";
 import { Cue, SoundCue } from "@/types";
-import { TYPE_COLORS, soundOptions, DEFAULT_SEGMENT_DURATION } from "@/helpers/constants";
-import SegmentedTimeInput from "./SegmentedTimeInput";
-import SoundSettings from "./SoundSettings";
-import PatternBuilder from "./PatternBuilder";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useState } from "react";
 import {
@@ -11,10 +12,12 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import PatternBuilder from "./PatternBuilder";
+import SegmentedTimeInput from "./SegmentedTimeInput";
+import SoundSettings from "./SoundSettings";
 
 interface CueEditorProps {
   cue: Cue | null;
@@ -48,13 +51,23 @@ const CueEditor = ({
   // Local state for pattern builder
   const [isPattern, setIsPattern] = useState(false);
   // Editable phases for pattern builder
-  const [phases, setPhases] = useState<Array<{
-    duration: string;
-    label: string;
-    isTTS: boolean;
-    ttsText: string;
-    soundId: string;
-  }>>([{ duration: "5", label: "", isTTS: true, ttsText: "", soundId: soundOptions[0] }]);
+  const [phases, setPhases] = useState<
+    Array<{
+      duration: string;
+      label: string;
+      isTTS: boolean;
+      ttsText: string;
+      soundId: string;
+    }>
+  >([
+    {
+      duration: "5",
+      label: "",
+      isTTS: true,
+      ttsText: "",
+      soundId: soundOptions[0],
+    },
+  ]);
   // Repeat controls
   const [repeatCycles, setRepeatCycles] = useState<string>("");
   const [repeatUntilH, setRepeatUntilH] = useState<string>("0");
@@ -76,25 +89,39 @@ const CueEditor = ({
     if (cue) {
       console.log("Initializing with existing cue data");
       // Enforce color by inferred type (duration presence)
-      const enforcedColor = cue.duration && cue.duration > 0 ? TYPE_COLORS.segment : TYPE_COLORS.trigger;
+      const enforcedColor =
+        cue.duration && cue.duration > 0
+          ? TYPE_COLORS.segment
+          : TYPE_COLORS.trigger;
       setEditedCue({ ...cue, color: enforcedColor });
       setIsTTS(cue.sound?.type === "tts");
       // When editing an existing cue, default to non-pattern mode
-      const hasPhases = Array.isArray((cue as any).phases) && (cue as any).phases.length > 0;
+      const hasPhases =
+        Array.isArray((cue as any).phases) && (cue as any).phases.length > 0;
       setIsPattern(!!hasPhases);
       if (hasPhases) {
-        const cps = (cue as any).phases as { duration: number; sound?: SoundCue; label?: string }[];
+        const cps = (cue as any).phases as {
+          duration: number;
+          sound?: SoundCue;
+          label?: string;
+        }[];
         setPhases(
           cps.map((p) => ({
             duration: String(Math.max(1, Math.floor(p.duration || 0))),
             label: p.label ?? "",
             isTTS: p.sound?.type === "tts",
-            ttsText: p.sound?.type === "tts" ? (p.sound.text ?? "") : "",
-            soundId: p.sound?.type === "sound" ? (p.sound.soundId ?? soundOptions[0]) : soundOptions[0],
+            ttsText: p.sound?.type === "tts" ? p.sound.text ?? "" : "",
+            soundId:
+              p.sound?.type === "sound"
+                ? p.sound.soundId ?? soundOptions[0]
+                : soundOptions[0],
           }))
         );
-        const rep = (cue as any).repeat as { cycles?: number; untilTime?: number } | undefined;
-        if (rep?.cycles != null) setRepeatCycles(String(Math.max(0, Math.floor(rep.cycles))));
+        const rep = (cue as any).repeat as
+          | { cycles?: number; untilTime?: number }
+          | undefined;
+        if (rep?.cycles != null)
+          setRepeatCycles(String(Math.max(0, Math.floor(rep.cycles))));
         else setRepeatCycles("");
         if (rep?.untilTime != null) {
           const ut = Math.max(0, Math.floor(rep.untilTime));
@@ -108,7 +135,15 @@ const CueEditor = ({
         }
       } else {
         // Reset pattern builder state when editing a non-pattern cue
-        setPhases([{ duration: "5", label: "", isTTS: true, ttsText: "", soundId: soundOptions[0] }]);
+        setPhases([
+          {
+            duration: "5",
+            label: "",
+            isTTS: true,
+            ttsText: "",
+            soundId: soundOptions[0],
+          },
+        ]);
         setRepeatCycles("");
         setRepeatUntilH("0");
         setRepeatUntilM("0");
@@ -221,11 +256,14 @@ const CueEditor = ({
   // Toggles for segment duration and pattern mode
   const toggleSegment = (value: boolean) => {
     if (value) {
-      setEditedCue((prev) => ({
-        ...prev,
-        duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION,
-        color: TYPE_COLORS.segment,
-      } as any));
+      setEditedCue(
+        (prev) =>
+          ({
+            ...prev,
+            duration: (prev as any).duration || DEFAULT_SEGMENT_DURATION,
+            color: TYPE_COLORS.segment,
+          } as any)
+      );
       setIsPattern(false);
     } else {
       setEditedCue((prev) => {
@@ -247,13 +285,33 @@ const CueEditor = ({
 
   // Helpers for pattern builder
   const addPhase = () => {
-    setPhases((prev) => [...prev, { duration: "5", label: "", isTTS: true, ttsText: "", soundId: soundOptions[0] }]);
+    setPhases((prev) => [
+      ...prev,
+      {
+        duration: "5",
+        label: "",
+        isTTS: true,
+        ttsText: "",
+        soundId: soundOptions[0],
+      },
+    ]);
   };
   const removePhase = (i: number) => {
     setPhases((prev) => prev.filter((_, idx) => idx !== i));
   };
-  const updatePhase = (i: number, patch: Partial<{ duration: string; label: string; isTTS: boolean; ttsText: string; soundId: string }>) => {
-    setPhases((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
+  const updatePhase = (
+    i: number,
+    patch: Partial<{
+      duration: string;
+      label: string;
+      isTTS: boolean;
+      ttsText: string;
+      soundId: string;
+    }>
+  ) => {
+    setPhases((prev) =>
+      prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p))
+    );
   };
   const repeatUntilTotal = () => {
     const h = toInt(repeatUntilH);
@@ -277,15 +335,30 @@ const CueEditor = ({
           label: (p.label || undefined) as any,
           sound: p.isTTS
             ? ({ type: "tts", text: p.ttsText || "" } as SoundCue)
-            : ({ type: "sound", soundId: p.soundId || soundOptions[0] } as SoundCue),
+            : ({
+                type: "sound",
+                soundId: p.soundId || soundOptions[0],
+              } as SoundCue),
         }))
         .filter((p) => p.duration > 0);
       if (builtPhases.length === 0) return;
 
-      const cyclesVal = repeatCycles.trim() === "" ? undefined : Math.max(0, toInt(repeatCycles));
+      const cyclesVal =
+        repeatCycles.trim() === ""
+          ? undefined
+          : Math.max(0, toInt(repeatCycles));
       const untilVal = repeatUntilTotal();
-      const useUntil = (repeatUntilH !== "0" || repeatUntilM !== "0" || repeatUntilS !== "0") && untilVal > 0;
-      const repeat = cyclesVal != null && !useUntil ? { cycles: cyclesVal } : useUntil ? { untilTime: untilVal } : undefined;
+      const useUntil =
+        (repeatUntilH !== "0" ||
+          repeatUntilM !== "0" ||
+          repeatUntilS !== "0") &&
+        untilVal > 0;
+      const repeat =
+        cyclesVal != null && !useUntil
+          ? { cycles: cyclesVal }
+          : useUntil
+          ? { untilTime: untilVal }
+          : undefined;
 
       const startAt = clampSec(Math.round(editedCue.startTime || 0));
       const cueToSave: Cue = {
@@ -302,9 +375,10 @@ const CueEditor = ({
     // Default single-cue save
     console.log("Calling onSave with editedCue");
     // Enforce color by inferred type (duration presence) on save
-    const enforced: Cue = (editedCue.duration && editedCue.duration > 0)
-      ? { ...(editedCue as any), color: TYPE_COLORS.segment }
-      : { ...(editedCue as any), color: TYPE_COLORS.trigger };
+    const enforced: Cue =
+      editedCue.duration && editedCue.duration > 0
+        ? { ...(editedCue as any), color: TYPE_COLORS.segment }
+        : { ...(editedCue as any), color: TYPE_COLORS.trigger };
     onSave(enforced);
   };
 
@@ -329,33 +403,8 @@ const CueEditor = ({
       </View>
 
       <ScrollView style={styles.mainContent}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mode</Text>
-          <View style={{ gap: 10 }}>
-            <View style={styles.soundTypeToggle}>
-              <Text style={styles.inputLabel}>Add duration (segment)</Text>
-              <Switch
-                value={isSegment && !isPattern}
-                onValueChange={toggleSegment}
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={isSegment && !isPattern ? "#f5dd4b" : "#f4f3f4"}
-              />
-            </View>
-            <View style={styles.soundTypeToggle}>
-              <Text style={styles.inputLabel}>Pattern (phases)</Text>
-              <Switch
-                value={isPattern}
-                onValueChange={togglePattern}
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={isPattern ? "#f5dd4b" : "#f4f3f4"}
-              />
-            </View>
-          </View>
-        </View>
-
         {/* Time Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Time</Text>
           <SegmentedTimeInput
             label="Start Time:"
             hours={startH}
@@ -370,7 +419,29 @@ const CueEditor = ({
               recomputeStart(h, m, s);
             }}
           />
-
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Mode</Text>
+            <View style={{ gap: 10 }}>
+              <View style={styles.soundTypeToggle}>
+                <Text style={styles.inputLabel}>Add duration (segment)</Text>
+                <Switch
+                  value={isSegment && !isPattern}
+                  onValueChange={toggleSegment}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={isSegment && !isPattern ? "#f5dd4b" : "#f4f3f4"}
+                />
+              </View>
+              <View style={styles.soundTypeToggle}>
+                <Text style={styles.inputLabel}>Pattern (phases)</Text>
+                <Switch
+                  value={isPattern}
+                  onValueChange={togglePattern}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={isPattern ? "#f5dd4b" : "#f4f3f4"}
+                />
+              </View>
+            </View>
+          </View>
 
           {isSegment && !isPattern && (
             <>

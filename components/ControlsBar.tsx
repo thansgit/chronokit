@@ -6,8 +6,8 @@ import { MuteToggleButton } from "@/components/MuteToggleButton";
 interface ControlsBarProps {
   style?: ViewStyle;
   onNew: () => void;
-  onSave: () => void;
-  onOpenSaved: () => void;
+  onSave?: () => void; // optional
+  onOpenSaved?: () => void; // optional
 }
 
 export const ControlsBar: React.FC<ControlsBarProps> = ({ style, onNew, onSave, onOpenSaved }) => {
@@ -20,15 +20,19 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({ style, onNew, onSave, 
         <Text style={styles.secondaryButtonText}>New</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={onSave} accessibilityRole="button" accessibilityLabel="Save session">
-        <Ionicons name="save-outline" size={20} color="#fff" />
-        <Text style={styles.secondaryButtonText}>Save</Text>
-      </TouchableOpacity>
+      {onSave && (
+        <TouchableOpacity style={styles.secondaryButton} onPress={onSave} accessibilityRole="button" accessibilityLabel="Save session">
+          <Ionicons name="save-outline" size={20} color="#fff" />
+          <Text style={styles.secondaryButtonText}>Save</Text>
+        </TouchableOpacity>
+      )}
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={onOpenSaved} accessibilityRole="button" accessibilityLabel="Open saved sessions">
-        <Ionicons name="folder-open-outline" size={20} color="#fff" />
-        <Text style={styles.secondaryButtonText}>Saved</Text>
-      </TouchableOpacity>
+      {onOpenSaved && (
+        <TouchableOpacity style={styles.secondaryButton} onPress={onOpenSaved} accessibilityRole="button" accessibilityLabel="Open saved sessions">
+          <Ionicons name="folder-open-outline" size={20} color="#fff" />
+          <Text style={styles.secondaryButtonText}>Saved</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
