@@ -11,6 +11,8 @@ interface SegmentedTimeInputProps {
   onChange: (h: string, m: string, s: string) => void;
 }
 
+//TODO: FIX
+
 const SegmentedTimeInput: React.FC<SegmentedTimeInputProps> = ({
   label,
   hours,

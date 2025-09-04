@@ -1,13 +1,15 @@
 import React from "react";
-import { View, Text, TextInput, TouchableOpacity, Switch, StyleSheet } from "react-native";
-import { soundOptions } from "@/helpers/constants";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export interface PhaseDraft {
   duration: string;
   label: string;
-  isTTS: boolean;
-  ttsText: string;
-  soundId: string;
 }
 
 interface PatternBuilderProps {
@@ -17,13 +19,7 @@ interface PatternBuilderProps {
   onUpdatePhase: (index: number, patch: Partial<PhaseDraft>) => void;
 
   repeatCycles: string;
-  repeatUntilH: string;
-  repeatUntilM: string;
-  repeatUntilS: string;
   onChangeRepeatCycles: (v: string) => void;
-  onChangeRepeatUntilH: (v: string) => void;
-  onChangeRepeatUntilM: (v: string) => void;
-  onChangeRepeatUntilS: (v: string) => void;
 }
 
 const toInt = (v: string) => {
@@ -37,17 +33,10 @@ const PatternBuilder: React.FC<PatternBuilderProps> = ({
   onRemovePhase,
   onUpdatePhase,
   repeatCycles,
-  repeatUntilH,
-  repeatUntilM,
-  repeatUntilS,
   onChangeRepeatCycles,
-  onChangeRepeatUntilH,
-  onChangeRepeatUntilM,
-  onChangeRepeatUntilS,
 }) => {
   return (
     <View style={{ marginTop: 6 }}>
-      <Text style={styles.sectionTitle}>Phases:</Text>
       {phases.map((ph, i) => (
         <View key={i} style={styles.phaseCard}>
           <View style={styles.phaseHeaderRow}>
@@ -60,8 +49,11 @@ const PatternBuilder: React.FC<PatternBuilderProps> = ({
           <View style={styles.inlineRow}>
             <Text style={styles.inputLabel}>Label</Text>
             <TextInput
-              style={[styles.timeInput, { width: undefined, flex: 1, textAlign: "left" }]}
-              placeholder="optional"
+              style={[
+                styles.timeInput,
+                { width: undefined, flex: 1, textAlign: "left" },
+              ]}
+              placeholder="e.g. Inhale"
               placeholderTextColor="#999"
               value={ph.label}
               onChangeText={(v) => onUpdatePhase(i, { label: v })}
@@ -71,8 +63,15 @@ const PatternBuilder: React.FC<PatternBuilderProps> = ({
           <View style={styles.inlineRow}>
             <Text style={styles.inputLabel}>Duration</Text>
             <TouchableOpacity
-              onPress={() => onUpdatePhase(i, { duration: String(Math.max(1, toInt(ph.duration) - 1)) })}
-              style={[styles.typeButton, { paddingVertical: 6, paddingHorizontal: 10, flex: 0 }]}
+              onPress={() =>
+                onUpdatePhase(i, {
+                  duration: String(Math.max(1, toInt(ph.duration) - 1)),
+                })
+              }
+              style={[
+                styles.typeButton,
+                { paddingVertical: 6, paddingHorizontal: 10, flex: 0 },
+              ]}
             >
               <Text style={styles.typeButtonText}>-</Text>
             </TouchableOpacity>
@@ -85,54 +84,27 @@ const PatternBuilder: React.FC<PatternBuilderProps> = ({
               placeholderTextColor="#999"
             />
             <TouchableOpacity
-              onPress={() => onUpdatePhase(i, { duration: String(Math.max(1, toInt(ph.duration) + 1)) })}
-              style={[styles.typeButton, { paddingVertical: 6, paddingHorizontal: 10, flex: 0 }]}
+              onPress={() =>
+                onUpdatePhase(i, {
+                  duration: String(Math.max(1, toInt(ph.duration) + 1)),
+                })
+              }
+              style={[
+                styles.typeButton,
+                { paddingVertical: 6, paddingHorizontal: 10, flex: 0 },
+              ]}
             >
               <Text style={styles.typeButtonText}>+</Text>
             </TouchableOpacity>
             <Text style={styles.timeSuffix}>s</Text>
           </View>
-
-          <View style={[styles.soundTypeToggle, { marginTop: 4 }]}> 
-            <Text style={styles.inputLabel}>Phase TTS</Text>
-            <Switch
-              value={ph.isTTS}
-              onValueChange={(val) => onUpdatePhase(i, { isTTS: val })}
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={ph.isTTS ? "#f5dd4b" : "#f4f3f4"}
-            />
-          </View>
-
-          {ph.isTTS ? (
-            <TextInput
-              style={[styles.ttsInput, { marginTop: 6 }]}
-              value={ph.ttsText}
-              onChangeText={(v) => onUpdatePhase(i, { ttsText: v })}
-              placeholder="Enter text to speak for this phase"
-              placeholderTextColor="#999"
-              multiline
-            />
-          ) : (
-            <View style={[styles.soundOptions, { marginTop: 6 }]}> 
-              {soundOptions.map((sound) => (
-                <TouchableOpacity
-                  key={sound}
-                  style={[styles.soundOption, ph.soundId === sound && styles.selectedSoundOption]}
-                  onPress={() => onUpdatePhase(i, { soundId: sound })}
-                >
-                  <Text
-                    style={[styles.soundOptionText, ph.soundId === sound && styles.selectedSoundOptionText]}
-                  >
-                    {sound}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
       ))}
 
-      <TouchableOpacity onPress={onAddPhase} style={[styles.typeButton, { marginTop: 6 }]}> 
+      <TouchableOpacity
+        onPress={onAddPhase}
+        style={[styles.typeButton, { marginTop: 6 }]}
+      >
         <Text style={styles.typeButtonText}>+ Add Phase</Text>
       </TouchableOpacity>
 
@@ -148,37 +120,10 @@ const PatternBuilder: React.FC<PatternBuilderProps> = ({
             placeholder="e.g. 4"
             placeholderTextColor="#999"
           />
-          <Text style={{ color: "#bbb" }}>or</Text>
-          <Text style={styles.inputLabel}>Until</Text>
-          <TextInput
-            style={[styles.timeInput, { width: 70 }]}
-            keyboardType="number-pad"
-            value={repeatUntilH}
-            onChangeText={onChangeRepeatUntilH}
-            placeholder="hh"
-            placeholderTextColor="#999"
-          />
-          <Text style={styles.timeSuffix}>h</Text>
-          <TextInput
-            style={[styles.timeInput, { width: 70 }]}
-            keyboardType="number-pad"
-            value={repeatUntilM}
-            onChangeText={onChangeRepeatUntilM}
-            placeholder="mm"
-            placeholderTextColor="#999"
-          />
-          <Text style={styles.timeSuffix}>m</Text>
-          <TextInput
-            style={[styles.timeInput, { width: 70 }]}
-            keyboardType="number-pad"
-            value={repeatUntilS}
-            onChangeText={onChangeRepeatUntilS}
-            placeholder="ss"
-            placeholderTextColor="#999"
-          />
-          <Text style={styles.timeSuffix}>s</Text>
         </View>
-        <Text style={styles.hintText}>Set either cycles or until time. Leaving both empty runs once.</Text>
+        <Text style={styles.hintText}>
+          Set cycles to repeat the phase sequence.
+        </Text>
       </View>
     </View>
   );
@@ -237,43 +182,6 @@ const styles = StyleSheet.create({
   timeSuffix: {
     color: "#bbb",
     marginLeft: 4,
-  },
-  soundTypeToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
-  ttsInput: {
-    backgroundColor: "#333",
-    color: "white",
-    padding: 10,
-    borderRadius: 5,
-    height: 80,
-    textAlignVertical: "top",
-  },
-  soundOptions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  soundOption: {
-    backgroundColor: "#333",
-    padding: 10,
-    borderRadius: 5,
-    margin: 5,
-    minWidth: "45%",
-    alignItems: "center",
-  },
-  selectedSoundOption: {
-    backgroundColor: "#ffd33d",
-  },
-  soundOptionText: {
-    color: "white",
-  },
-  selectedSoundOptionText: {
-    color: "#25292e",
-    fontWeight: "bold",
   },
   repeatRow: {
     flexDirection: "row",

@@ -1,6 +1,8 @@
 import CircularProgressTimer from "@/components/CircularProgressTimer";
 import ControlsBar from "@/components/ControlsBar";
-import CueEditor from "@/components/CueEditor";
+import SoundCueEditor from "@/components/SoundCueEditor";
+import SegmentEditor from "@/components/SegmentEditor";
+import PatternEditor from "@/components/PatternEditor";
 import SavedSessionsModal from "@/components/SavedSessionsModal";
 import { TIMER_GRADIENT, TYPE_COLORS } from "@/helpers/constants";
 import { normalizeCue } from "@/helpers/cue";
@@ -58,6 +60,7 @@ export default function PlayerScreen() {
   // Cue editor modal state
   const [cueEditorVisible, setCueEditorVisible] = useState(false);
   const [editingCue, setEditingCue] = useState<Cue | null>(null);
+  const [editorType, setEditorType] = useState<"sound" | "segment" | "pattern" | null>(null);
 
   // Default title derived from duration
   const defaultTitle = useMemo(() => {
@@ -289,37 +292,74 @@ export default function PlayerScreen() {
         <View style={styles.smallModalBackdrop}>
           <View style={styles.smallModalCard}>
             <Text style={styles.smallModalTitle}>
-              Add cue at {formatClock(Math.round(draftStartTime ?? 0))}?
+              Add at {formatClock(Math.round(draftStartTime ?? 0))}
             </Text>
-            <View style={styles.smallModalRow}>
+            <View style={[styles.smallModalRow, { justifyContent: "center" }]}>
               <TouchableOpacity
-                style={[styles.smallPill, { backgroundColor: "#3a3f47" }]}
+                style={[styles.smallPill, { backgroundColor: "#3a8bff" }]}
                 onPress={() => {
+                  if (!session || draftStartTime == null) return;
+                  const newCue: Cue = {
+                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    startTime: Math.round(draftStartTime),
+                    color: TYPE_COLORS.trigger,
+                    sound: { type: "sound", soundId: "bell" },
+                  };
+                  setEditingCue(newCue);
+                  setEditorType("sound");
+                  setCueEditorVisible(true);
                   setConfirmAddVisible(false);
                 }}
               >
-                <Ionicons name="close" size={16} color="#fff" />
-                <Text style={styles.smallPillText}>Cancel</Text>
+                <Ionicons name="volume-high" size={16} color="#fff" />
+                <Text style={styles.smallPillText}>Sound</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.smallPill, { backgroundColor: "#3a8b55" }]}
                 onPress={() => {
                   if (!session || draftStartTime == null) return;
-                  // Open editor with prefilled cue
                   const newCue: Cue = {
-                    id:
-                      generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
                     startTime: Math.round(draftStartTime),
-                    color: TYPE_COLORS.trigger, // trigger = no duration
+                    color: TYPE_COLORS.segment,
                     sound: { type: "sound", soundId: "bell" },
-                  };
+                    duration: undefined, // segment editor will set default
+                  } as any;
                   setEditingCue(newCue);
+                  setEditorType("segment");
                   setCueEditorVisible(true);
                   setConfirmAddVisible(false);
                 }}
               >
-                <Ionicons name="checkmark" size={16} color="#fff" />
-                <Text style={styles.smallPillText}>Add</Text>
+                <Ionicons name="time" size={16} color="#fff" />
+                <Text style={styles.smallPillText}>Segment</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.smallPill, { backgroundColor: "#bb6bd9" }]}
+                onPress={() => {
+                  if (!session || draftStartTime == null) return;
+                  const newCue: Cue = {
+                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    startTime: Math.round(draftStartTime),
+                    color: TYPE_COLORS.segment,
+                  } as any;
+                  setEditingCue(newCue);
+                  setEditorType("pattern");
+                  setCueEditorVisible(true);
+                  setConfirmAddVisible(false);
+                }}
+              >
+                <Ionicons name="grid" size={16} color="#fff" />
+                <Text style={styles.smallPillText}>Pattern</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.smallModalRow, { marginTop: 10 }]}>
+              <TouchableOpacity
+                style={[styles.smallPill, { backgroundColor: "#3a3f47", flex: 1, justifyContent: "center" }]}
+                onPress={() => setConfirmAddVisible(false)}
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+                <Text style={styles.smallPillText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -335,40 +375,63 @@ export default function PlayerScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { maxHeight: "80%" }]}>
-            {session && (
-              <CueEditor
+            {session && editorType === "sound" && (
+              <SoundCueEditor
                 cue={editingCue}
                 maxTime={session.totalDuration}
                 onSave={(cue) => {
                   if (!session) return;
-                  const normalized = normalizeCue(
-                    cue as any,
-                    session.totalDuration
-                  );
-                  const updated = {
-                    ...session,
-                    cues: [...session.cues, normalized],
-                  };
+                  const normalized = normalizeCue(cue as any, session.totalDuration);
+                  const updated = { ...session, cues: [...session.cues, normalized] };
                   updateSession(updated);
                   setCueEditorVisible(false);
                   setEditingCue(null);
-                }}
-                onSaveMany={(cues) => {
-                  if (!session) return;
-                  const normalized = cues.map((c) =>
-                    normalizeCue(c as any, session.totalDuration)
-                  );
-                  const updated = {
-                    ...session,
-                    cues: [...session.cues, ...normalized],
-                  };
-                  updateSession(updated);
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
+                  setEditorType(null);
                 }}
                 onClose={() => {
                   setCueEditorVisible(false);
                   setEditingCue(null);
+                  setEditorType(null);
+                }}
+              />
+            )}
+            {session && editorType === "segment" && (
+              <SegmentEditor
+                cue={editingCue}
+                maxTime={session.totalDuration}
+                onSave={(cue) => {
+                  if (!session) return;
+                  const normalized = normalizeCue(cue as any, session.totalDuration);
+                  const updated = { ...session, cues: [...session.cues, normalized] };
+                  updateSession(updated);
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                  setEditorType(null);
+                }}
+                onClose={() => {
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                  setEditorType(null);
+                }}
+              />
+            )}
+            {session && editorType === "pattern" && (
+              <PatternEditor
+                cue={editingCue}
+                maxTime={session.totalDuration}
+                onSave={(cue) => {
+                  if (!session) return;
+                  const normalized = normalizeCue(cue as any, session.totalDuration);
+                  const updated = { ...session, cues: [...session.cues, normalized] };
+                  updateSession(updated);
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                  setEditorType(null);
+                }}
+                onClose={() => {
+                  setCueEditorVisible(false);
+                  setEditingCue(null);
+                  setEditorType(null);
                 }}
               />
             )}
