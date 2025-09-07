@@ -5,7 +5,7 @@ import { Tabs } from "expo-router";
 export default function TabLayout() {
   return (
     <Tabs
-      initialRouteName="InputDurationScreen"
+      initialRouteName="PlayerScreen"
       tabBar={(props) => <PlayerControlTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: "#ffd33d",
@@ -19,19 +19,6 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="InputDurationScreen"
-        options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "timer" : "timer-outline"}
-              color={color}
-              size={24}
-            />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="PlayerScreen"
         options={{

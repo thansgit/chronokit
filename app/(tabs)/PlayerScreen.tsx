@@ -1,20 +1,29 @@
 import CircularProgressTimer from "@/components/CircularProgressTimer";
 import ControlsBar from "@/components/ControlsBar";
-import SoundCueEditor from "@/components/SoundCueEditor";
-import SegmentEditor from "@/components/SegmentEditor";
+import DurationPicker from "@/components/DurationPicker";
 import PatternEditor from "@/components/PatternEditor";
 import SavedSessionsModal from "@/components/SavedSessionsModal";
+import SegmentEditor from "@/components/SegmentEditor";
+import SoundCueEditor from "@/components/SoundCueEditor";
+
 import { TIMER_GRADIENT, TYPE_COLORS } from "@/helpers/constants";
-import { normalizeCue } from "@/helpers/cue";
 import { formatClock, formatSessionTitle } from "@/helpers/format";
 import { generateId } from "@/helpers/id";
+
+import { useAddCuePrompt } from "@/hooks/useAddCuePrompt";
+import { useCueEditor } from "@/hooks/useCueEditor";
+import { useDurationPicker } from "@/hooks/useDurationPicker";
+import { useRingScrub } from "@/hooks/useRingScrub";
+import { useSavedSessions } from "@/hooks/useSavedSessions";
+import { useSessionTitle } from "@/hooks/useSessionTitle";
 import { useTimer } from "@/hooks/useTimer";
+
 import { useSessionStore } from "@/stores/useSessionStore";
 import { useTimerStore } from "@/stores/useTimerStore";
+
 import { Cue } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   Modal,
   StyleSheet,
@@ -36,87 +45,46 @@ export default function PlayerScreen() {
     resetTimer,
     toggleTimer,
   } = useTimer();
-  const navigation = useNavigation();
-  const router = useRouter();
   const updateSession = useSessionStore((s) => s.updateSession);
-  const saveCurrentSession = useSessionStore((s) => s.saveCurrentSession);
-  const sessions = useSessionStore((s) => s.sessions);
-  const selectSession = useSessionStore((s) => s.selectSession);
-  const deleteSession = useSessionStore((s) => s.deleteSession);
   const startNewSession = useSessionStore((s) => s.startNewSession);
+  const deleteSession = useSessionStore((s) => s.deleteSession);
   const resetTimerStore = useTimerStore((s) => s.resetTimer);
 
-  // Local edit state for title
-  const [isEditing, setIsEditing] = useState(false);
-  const [localName, setLocalName] = useState<string>("");
-  const inputRef = useRef<TextInput>(null);
-  const [showSavedModal, setShowSavedModal] = useState(false);
+  // Title hook manages syncing and focus
+  const title = useSessionTitle(session, updateSession);
+  const saved = useSavedSessions();
+  // Hooks: duration picker and cue editor
+  const durationPicker = useDurationPicker();
 
-  // Scrub state for ring interaction
-  const [isScrubbing, setIsScrubbing] = useState(false);
-  const [confirmAddVisible, setConfirmAddVisible] = useState(false);
-  const [draftStartTime, setDraftStartTime] = useState<number | null>(null);
+  // Scrub and add-cue prompt hooks
+  const addCue = useAddCuePrompt();
+  const scrub = useRingScrub(isRunning, (t) => addCue.openAt(t));
 
   // Cue editor modal state
-  const [cueEditorVisible, setCueEditorVisible] = useState(false);
-  const [editingCue, setEditingCue] = useState<Cue | null>(null);
-  const [editorType, setEditorType] = useState<"sound" | "segment" | "pattern" | null>(null);
+  const cueEditor = useCueEditor(session, updateSession);
 
-  // Default title derived from duration
+  // Default title (for dirty check). Display handled by hook
   const defaultTitle = useMemo(() => {
     if (!session) return "";
     return formatSessionTitle(session.totalDuration);
   }, [session]);
 
-  // Compute what to show as the current title (name or default)
-  const displayTitle = useMemo(() => {
-    if (!session) return "";
-    const n = (session.name ?? "").trim();
-    return n.length > 0 ? n : defaultTitle;
-  }, [session, defaultTitle]);
-
   // Determine if current working session has unsaved changes compared to persisted sessions list
   const isDirty = useMemo(() => {
     if (!session) return false;
-    const saved = sessions.find((s) => s.id === session.id);
-    if (!saved) return true; // new, not yet saved
+    const savedSess = saved.sessions.find((s) => s.id === session.id);
+    if (!savedSess) return true; // new, not yet saved
     try {
-      return JSON.stringify(saved) !== JSON.stringify(session);
+      return JSON.stringify(savedSess) !== JSON.stringify(session);
     } catch {
       // Fallback: if comparison fails, assume dirty to be safe
       return true;
     }
-  }, [session, sessions]);
-
-  // Keep local input state in sync when session changes or edit toggles
-  useEffect(() => {
-    if (session) {
-      setLocalName((session.name ?? "").trim() || defaultTitle);
-    } else {
-      setLocalName("");
-    }
-  }, [session, defaultTitle]);
-
-  // Focus input when entering edit mode
-  useEffect(() => {
-    if (isEditing) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [isEditing]);
-
-  // Removed auto-start behavior: do not start timer on screen focus.
-
-  // Note: Cue triggering is now handled by the TimerService through the useTimer hook
-  // If session is missing, navigate to the duration input screen
-  useEffect(() => {
-    if (!session) {
-      router.replace("/(tabs)/InputDurationScreen");
-    }
-  }, [session, router]);
+  }, [session, saved.sessions]);
 
   return (
     <View style={styles.container}>
-      {session && (
+      {session ? (
         <View style={styles.card}>
           {/* Close/Delete current session */}
           <TouchableOpacity
@@ -128,7 +96,7 @@ export default function PlayerScreen() {
                 startNewSession();
               }
               resetTimerStore();
-              router.push("/(tabs)/InputDurationScreen");
+              // Remain on player screen; user can set duration again
             }}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             accessibilityRole="button"
@@ -137,23 +105,27 @@ export default function PlayerScreen() {
             <Ionicons name="close" size={18} color="#fff" />
           </TouchableOpacity>
           <View style={styles.titleWrapper}>
-            {!isEditing ? (
+            {!title.isEditing ? (
               <View style={styles.titleRow}>
                 <TouchableOpacity
                   style={styles.titleTapArea}
                   activeOpacity={0.7}
-                  onPress={() => setIsEditing(true)}
+                  onPress={() => title.startEditing()}
                   accessibilityRole="button"
                   accessibilityLabel="Edit session name"
                 >
-                  <Text style={styles.titleText} numberOfLines={1} ellipsizeMode="tail">
-                    {displayTitle}
+                  <Text
+                    style={styles.titleText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {title.displayTitle}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.titleDropdownButton}
                   activeOpacity={0.7}
-                  onPress={() => setShowSavedModal(true)}
+                  onPress={() => saved.open()}
                   accessibilityRole="button"
                   accessibilityLabel="Open saved sessions"
                   hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -168,9 +140,11 @@ export default function PlayerScreen() {
                 <TouchableOpacity
                   style={styles.titleDropdownButton}
                   activeOpacity={0.7}
-                  onPress={() => saveCurrentSession()}
+                  onPress={() => saved.save()}
                   accessibilityRole="button"
-                  accessibilityLabel={isDirty ? "Save session (unsaved changes)" : "Session saved"}
+                  accessibilityLabel={
+                    isDirty ? "Save session (unsaved changes)" : "Session saved"
+                  }
                   hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 >
                   <Ionicons
@@ -185,19 +159,15 @@ export default function PlayerScreen() {
             ) : (
               <View style={styles.editRow}>
                 <TextInput
-                  ref={inputRef}
+                  ref={title.inputRef}
                   style={styles.titleInput}
-                  value={localName}
-                  onChangeText={setLocalName}
+                  value={title.localName}
+                  onChangeText={title.setLocalName}
                   onEndEditing={() => {
-                    const next = localName.trim();
-                    updateSession({ ...session, name: next });
-                    setIsEditing(false);
+                    title.confirmEditing();
                   }}
                   onSubmitEditing={() => {
-                    const next = localName.trim();
-                    updateSession({ ...session, name: next });
-                    setIsEditing(false);
+                    title.confirmEditing();
                   }}
                   placeholder="Session name"
                   placeholderTextColor="#888"
@@ -208,9 +178,7 @@ export default function PlayerScreen() {
                 />
                 <TouchableOpacity
                   onPress={() => {
-                    const next = localName.trim();
-                    updateSession({ ...session, name: next });
-                    setIsEditing(false);
+                    title.confirmEditing();
                   }}
                   style={styles.confirmButton}
                   accessibilityRole="button"
@@ -221,94 +189,96 @@ export default function PlayerScreen() {
               </View>
             )}
           </View>
-        {/* Removed extra scrub readout to avoid duplicate display during dragging */}
-        {session && (
-          <View style={styles.timerBox}>
-            <CircularProgressTimer
-              totalDuration={session.totalDuration}
-              currentValue={remainingSec}
-              radius={160}
-              strokeWidth={15}
-              dashCount={60}
-              dashWidth={3}
-              gradientColors={[...TIMER_GRADIENT]}
-              textColor="white"
-              cues={session.cues}
-              onReset={resetTimer}
-              allowScrub={!isRunning}
-              onScrubStart={() => {
-                if (isRunning) return; // guard
-                setIsScrubbing(true);
-              }}
-              onScrub={({ time, x, y }) => {
-                if (isRunning) return;
-                // No external readout; keep only internal overlay
-              }}
-              onScrubEnd={({ time, x, y }) => {
-                if (isRunning) return;
-                setIsScrubbing(false);
-                setDraftStartTime(time);
-                setConfirmAddVisible(true);
-              }}
-            />
-          </View>
-        )}
-        <ControlsBar
-          style={{ marginTop: 28 }}
-          onNew={() => {
-            startNewSession();
-            resetTimerStore();
-            router.push("/(tabs)/InputDurationScreen");
-          }}
-        />
+          {/* Removed extra scrub readout to avoid duplicate display during dragging */}
+          {session && (
+            <View style={styles.timerBox}>
+              <CircularProgressTimer
+                totalDuration={session.totalDuration}
+                currentValue={remainingSec}
+                radius={160}
+                strokeWidth={15}
+                dashCount={60}
+                dashWidth={3}
+                gradientColors={[...TIMER_GRADIENT]}
+                textColor="white"
+                cues={session.cues}
+                onReset={resetTimer}
+                allowScrub={!isRunning}
+                onScrubStart={scrub.onScrubStart}
+                onScrub={scrub.onScrub}
+                onScrubEnd={scrub.onScrubEnd}
+              />
+            </View>
+          )}
+          <ControlsBar
+            style={{ marginTop: 28 }}
+            onNew={() => {
+              startNewSession();
+              resetTimerStore();
+              // Prompt for duration
+              durationPicker.open();
+            }}
+          />
+        </View>
+      ) : (
+        // No session: show Set Duration button centered
+        <View style={styles.emptyCenter}>
+          <TouchableOpacity
+            onPress={() => durationPicker.open()}
+            accessibilityRole="button"
+            accessibilityLabel="Set duration"
+            activeOpacity={0.8}
+          >
+            <View style={styles.setDurationBtn}>
+              <Ionicons name="timer-outline" size={24} color="#C2C2C2" />
+              <Text style={styles.setDurationText}>Set duration</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       )}
 
       {/* Saved Sessions Modal */}
       <SavedSessionsModal
-        visible={showSavedModal}
-        sessions={sessions}
+        visible={saved.visible}
+        sessions={saved.sessions}
         onNew={() => {
-          startNewSession();
-          resetTimerStore();
-          setShowSavedModal(false);
-          router.push("/(tabs)/InputDurationScreen");
+          saved.createNew();
+          durationPicker.open();
         }}
-        onClose={() => setShowSavedModal(false)}
+        onClose={saved.close}
         onSelect={(id) => {
-          selectSession(id);
-          setShowSavedModal(false);
+          saved.select(id);
+          saved.close();
         }}
-        onDelete={(id) => deleteSession(id)}
+        onDelete={(id) => saved.remove(id)}
       />
 
       {/* Confirm Add Cue Modal */}
       <Modal
-        visible={confirmAddVisible}
+        visible={addCue.visible}
         transparent
         animationType="fade"
-        onRequestClose={() => setConfirmAddVisible(false)}
+        onRequestClose={() => addCue.close()}
       >
         <View style={styles.smallModalBackdrop}>
           <View style={styles.smallModalCard}>
             <Text style={styles.smallModalTitle}>
-              Add at {formatClock(Math.round(draftStartTime ?? 0))}
+              Add at {formatClock(Math.round(addCue.draftStartTime ?? 0))}
             </Text>
             <View style={[styles.smallModalRow, { justifyContent: "center" }]}>
               <TouchableOpacity
                 style={[styles.smallPill, { backgroundColor: "#3a8bff" }]}
                 onPress={() => {
-                  if (!session || draftStartTime == null) return;
+                  if (!session || addCue.draftStartTime == null) return;
                   const newCue: Cue = {
-                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
-                    startTime: Math.round(draftStartTime),
+                    id:
+                      generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    startTime: Math.round(addCue.draftStartTime),
                     color: TYPE_COLORS.trigger,
                     sound: { type: "sound", soundId: "bell" },
                   };
-                  setEditingCue(newCue);
-                  setEditorType("sound");
-                  setCueEditorVisible(true);
-                  setConfirmAddVisible(false);
+                  cueEditor.open("sound", newCue);
+                  addCue.close();
                 }}
               >
                 <Ionicons name="volume-high" size={16} color="#fff" />
@@ -317,18 +287,17 @@ export default function PlayerScreen() {
               <TouchableOpacity
                 style={[styles.smallPill, { backgroundColor: "#3a8b55" }]}
                 onPress={() => {
-                  if (!session || draftStartTime == null) return;
+                  if (!session || addCue.draftStartTime == null) return;
                   const newCue: Cue = {
-                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
-                    startTime: Math.round(draftStartTime),
+                    id:
+                      generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    startTime: Math.round(addCue.draftStartTime),
                     color: TYPE_COLORS.segment,
                     sound: { type: "sound", soundId: "bell" },
                     duration: undefined, // segment editor will set default
                   } as any;
-                  setEditingCue(newCue);
-                  setEditorType("segment");
-                  setCueEditorVisible(true);
-                  setConfirmAddVisible(false);
+                  cueEditor.open("segment", newCue);
+                  addCue.close();
                 }}
               >
                 <Ionicons name="time" size={16} color="#fff" />
@@ -337,16 +306,15 @@ export default function PlayerScreen() {
               <TouchableOpacity
                 style={[styles.smallPill, { backgroundColor: "#bb6bd9" }]}
                 onPress={() => {
-                  if (!session || draftStartTime == null) return;
+                  if (!session || addCue.draftStartTime == null) return;
                   const newCue: Cue = {
-                    id: generateId?.() ?? Math.random().toString(36).slice(2, 10),
-                    startTime: Math.round(draftStartTime),
+                    id:
+                      generateId?.() ?? Math.random().toString(36).slice(2, 10),
+                    startTime: Math.round(addCue.draftStartTime),
                     color: TYPE_COLORS.segment,
                   } as any;
-                  setEditingCue(newCue);
-                  setEditorType("pattern");
-                  setCueEditorVisible(true);
-                  setConfirmAddVisible(false);
+                  cueEditor.open("pattern", newCue);
+                  addCue.close();
                 }}
               >
                 <Ionicons name="grid" size={16} color="#fff" />
@@ -355,8 +323,15 @@ export default function PlayerScreen() {
             </View>
             <View style={[styles.smallModalRow, { marginTop: 10 }]}>
               <TouchableOpacity
-                style={[styles.smallPill, { backgroundColor: "#3a3f47", flex: 1, justifyContent: "center" }]}
-                onPress={() => setConfirmAddVisible(false)}
+                style={[
+                  styles.smallPill,
+                  {
+                    backgroundColor: "#3a3f47",
+                    flex: 1,
+                    justifyContent: "center",
+                  },
+                ]}
+                onPress={() => addCue.close()}
               >
                 <Ionicons name="close" size={16} color="#fff" />
                 <Text style={styles.smallPillText}>Cancel</Text>
@@ -368,76 +343,55 @@ export default function PlayerScreen() {
 
       {/* Cue Editor Modal */}
       <Modal
-        visible={cueEditorVisible}
+        visible={cueEditor.visible}
         transparent
         animationType="slide"
-        onRequestClose={() => setCueEditorVisible(false)}
+        onRequestClose={() => cueEditor.close()}
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { maxHeight: "80%" }]}>
-            {session && editorType === "sound" && (
+            {session && cueEditor.editorType === "sound" && (
               <SoundCueEditor
-                cue={editingCue}
+                cue={cueEditor.editingCue}
                 maxTime={session.totalDuration}
-                onSave={(cue) => {
-                  if (!session) return;
-                  const normalized = normalizeCue(cue as any, session.totalDuration);
-                  const updated = { ...session, cues: [...session.cues, normalized] };
-                  updateSession(updated);
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
-                  setEditorType(null);
-                }}
-                onClose={() => {
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
-                  setEditorType(null);
-                }}
+                onSave={(cue) => cueEditor.save(cue as Cue)}
+                onClose={() => cueEditor.close()}
               />
             )}
-            {session && editorType === "segment" && (
+            {session && cueEditor.editorType === "segment" && (
               <SegmentEditor
-                cue={editingCue}
+                cue={cueEditor.editingCue}
                 maxTime={session.totalDuration}
-                onSave={(cue) => {
-                  if (!session) return;
-                  const normalized = normalizeCue(cue as any, session.totalDuration);
-                  const updated = { ...session, cues: [...session.cues, normalized] };
-                  updateSession(updated);
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
-                  setEditorType(null);
-                }}
-                onClose={() => {
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
-                  setEditorType(null);
-                }}
+                onSave={(cue) => cueEditor.save(cue as Cue)}
+                onClose={() => cueEditor.close()}
               />
             )}
-            {session && editorType === "pattern" && (
+            {session && cueEditor.editorType === "pattern" && (
               <PatternEditor
-                cue={editingCue}
+                cue={cueEditor.editingCue}
                 maxTime={session.totalDuration}
-                onSave={(cue) => {
-                  if (!session) return;
-                  const normalized = normalizeCue(cue as any, session.totalDuration);
-                  const updated = { ...session, cues: [...session.cues, normalized] };
-                  updateSession(updated);
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
-                  setEditorType(null);
-                }}
-                onClose={() => {
-                  setCueEditorVisible(false);
-                  setEditingCue(null);
-                  setEditorType(null);
-                }}
+                onSave={(cue) => cueEditor.save(cue as Cue)}
+                onClose={() => cueEditor.close()}
               />
             )}
           </View>
         </View>
       </Modal>
+
+      {/* Duration Picker Modal */}
+      <DurationPicker
+        visible={durationPicker.visible}
+        onClose={durationPicker.close}
+        onConfirm={({
+          hours,
+          minutes,
+          seconds,
+        }: {
+          hours?: number;
+          minutes?: number;
+          seconds?: number;
+        }) => durationPicker.confirm({ hours, minutes, seconds })}
+      />
     </View>
   );
 }
@@ -465,6 +419,26 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     // elevation (Android)
     elevation: 4,
+  },
+  emptyCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  setDurationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#8C8C8C",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  setDurationText: {
+    color: "#C2C2C2",
+    fontSize: 18,
+    fontWeight: "600",
   },
   closeButton: {
     position: "absolute",
